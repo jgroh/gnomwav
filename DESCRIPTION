@@ -11,4 +11,5 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports: 
     data.table,
-    waveslim
+    waveslim,
+    magrittr
