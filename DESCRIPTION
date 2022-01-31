@@ -5,6 +5,8 @@ Authors@R:
     person("Jeffrey", "Groh", , "jgroh@ucdavis.edu", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0444-4392"))
 Description: This package provides functions to produce wavelet-based summaries of genomic signals measured along chromosomes, such as ancestry fraction. 
+URL: https://github.com/jgroh/gnomwav
+Bugreports: https://github.com/jgroh/gnomwav/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
