@@ -86,7 +86,7 @@ multi_modwts <- function(data, chromosome, signals, rm.boundary=TRUE){
       temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
       temp[, position.id := seq_len(.N), by = c(chromosome, "level")]
       setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
-      d2 <- merge(d2, temp)
+      d2 <- merge(d2, temp, by = c(chromosome, "level", "position.id"))
     }
   }
 

@@ -11,7 +11,7 @@ sample_var <- function(u){
 #' of wavelet variances is taken over chromosmes, and chromosome-level variance is also
 #' calculated.
 #'
-#' @param x data.frame containing columns for chromosome id and signal measurements
+#' @param data data.frame containing columns for chromosome id and signal measurements
 #' @param chromosome character string, name of column containing chromosome id
 #' @param signals character vector, names of columns containing the signals for which
 #' variance decomposition is desired
@@ -54,8 +54,8 @@ sample_var <- function(u){
 #' with(wv, plot(variance.y ~ level))
 #' with(wv, plot(propvar.y ~ level))
 #'
-gnom_var_decomp <- function(x, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
-  m <- multi_modwts(data = x, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
+gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
+  m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
   # compute weights for each chromosome at each level of the decomposition
   # based on the number of wavelets present at that level on the given chromosome
@@ -82,18 +82,18 @@ gnom_var_decomp <- function(x, chromosome, signals, rm.boundary=TRUE, avg.over.c
 
   # otherwise, return genome-wide results:
 
-  totalvar <- x[, unlist(lapply(.SD, var)), .SDcols = signals]
+  totalvar <- data[, unlist(lapply(.SD, var)), .SDcols = signals]
 
   # ---- obtain chromosome-level variance
   # 1.  total signal means
-  totalmeans <- x[, lapply(.SD, mean), .SDcols = signals]
+  totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
   setnames(totalmeans, signals, paste0("totalmean.",signals))
 
   # 2. chromosome means
-  chrmeans <- x[, lapply(.SD, mean), by = chromosome, .SDcols = signals]
+  chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = signals]
 
   # 3. chromosome lengths as weights
-  chrlen <- x[, .(weight = .N), by = chromosome]
+  chrlen <- data[, .(weight = .N), by = chromosome]
   chrlen[, weight := weight/sum(weight)]
   chrmeans <- merge(chrmeans,chrlen)
   chrmeans[, names(totalmeans) := totalmeans]
