@@ -48,7 +48,7 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
   # p values
   zcoeff <- z$coefficients
   pvals <- zcoeff[,4][xvars]
-  names(pvals) <- paste0("pval", gsub("coefficient", "", xvars))
+  names(pvals) <- paste0("pval.", gsub("coefficient.", "", xvars))
 
   # estimate of r squared
   theta_n <- z$adj.r.squared
