@@ -41,14 +41,24 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
 
   f <- as.formula(paste(yvar, paste(xvars, collapse=" + "), sep=" ~ "))
 
-  # estimate with all data
-  theta_n <- summary(lm(f, data = data))$adj.r.squared
+  # model using all data
+  z <- summary(lm(f, data = data))
+  theta_n <- z$adj.r.squared
+
+  # p values
+  zcoeff <- z$coefficients
+  pvals <- zcoeff[,4][xvars]
+  names(pvals) <- paste0("pval", gsub("coefficient", "", xvars))
+
+  # estimate of r squared
+  theta_n <- z$adj.r.squared
 
   # pseudovalues
   ps <- vector()
   cnt <- 0
   n <- length(data[, unique(get(chromosome))])
 
+  # note: include some check here to make sure there are sufficiently many chromosomes
   for(i in data[, unique(get(chromosome))]){
     cnt <- cnt + 1
     theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$adj.r.squared
@@ -62,7 +72,8 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
   low <- ps_mean - 1.96*sqrt(ps_var/n)
   up <- ps_mean + 1.96*sqrt(ps_var/n)
 
-  return(list(rsqrd = ps_mean, ci95_lower = low, ci95_upper = up))
+  return( c(list(rsqrd = ps_mean, ci95_lower = low, ci95_upper = up),
+            as.list(pvals)))
 
 }
 
