@@ -62,10 +62,15 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
   wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
 
   # add NA weights for chromosomes missing certain levels
-  for(g in unique(wav_weights$group)){
-    absent <- setdiff(wav_weights[, level], wav_weights[group == g, level])
-    wav_weights <- rbind(wav_weights,
-                         list(group = g, level = absent, n.wavelets = rep(0,length(absent))))
+  for(g in unique(wav_weights[, get(chromosome)])){
+    absent <- setdiff(wav_weights[, level], wav_weights[get(chromosome) == g, level])
+
+    abs_tbl <- data.table(chromosome = g,
+                    level = absent,
+                    n.wavelets = rep(0, length(absent) ) )
+    setnames(abs_tbl,  "chromosome", chromosome)
+
+    wav_weights <- rbind(wav_weights, abs_tbl)
   }
 
   wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
