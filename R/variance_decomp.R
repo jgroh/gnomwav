@@ -1,7 +1,3 @@
-sample_var <- function(u){
-  return(mean(u^2, na.rm=T) - mean(u, na.rm=T)^2)
-}
-
 #' Genome-wide variance decomposition
 #'
 #' Performs a scale-based decomposition of the variance in signal measurements along a genome
@@ -57,36 +53,45 @@ sample_var <- function(u){
 gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
   m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
-  # compute weights for each chromosome at each level of the decomposition
-  # based on the number of wavelets present at that level on the given chromosome
-  wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
+  # If multiple chromosomes present:
+  n_chrom <- data[, length(unique(get(chromosome)))]
+  if ( n_chrom > 1 ) {
 
-  # add NA weights for chromosomes missing certain levels
-  for(g in unique(wav_weights[, get(chromosome)])){
-    absent <- setdiff(wav_weights[, level], wav_weights[get(chromosome) == g, level])
+    # compute weights for each chromosome at each level of the decomposition
+    # based on the number of wavelets present at that level on the given chromosome
+    wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
 
-    abs_tbl <- data.table(chromosome = g,
-                    level = absent,
-                    n.wavelets = rep(0, length(absent) ) )
-    setnames(abs_tbl,  "chromosome", chromosome)
+    # add NA weights for chromosomes missing certain levels
+    for(g in unique(wav_weights[, get(chromosome)])){
+      absent <- setdiff(wav_weights[, level], wav_weights[get(chromosome) == g, level])
 
-    wav_weights <- rbind(wav_weights, abs_tbl)
+      abs_tbl <- data.table(chromosome = g,
+                            level = absent,
+                            n.wavelets = rep(0, length(absent) ) )
+      setnames(abs_tbl,  "chromosome", chromosome)
+      wav_weights <- rbind(wav_weights, abs_tbl)
+    }
+
+    wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
+
   }
 
-  wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
-
-  # compute wavelet variances using average of squared non-boundary wavelet coefficients
-  wv <- m[, lapply(.SD, sample_var), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
+  # compute wavelet variances using average of squared wavelet coefficients
+  wv <- m[, lapply(.SD, var), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
   varcols <- paste0("variance.", signals)
   setnames(wv, paste0("coefficient.",signals), varcols)
 
-  # return chromosome results
+  # option to return chromosome results
   if (!avg.over.chroms) {
     return(wv)
   }
 
-  # otherwise, return genome-wide results:
+  # if only a single chromosome present, return
+  if (n_chrom == 1){
+    return(wv)
+  }
 
+  # otherwise, average across chroms to return genome-wide results:
   totalvar <- data[, unlist(lapply(.SD, var)), .SDcols = signals]
 
   # ---- obtain chromosome-level variance
@@ -114,7 +119,7 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
   # proportion of genomic variance from chromosome-level
   chrpropvar <- chrvar/totalvar
 
-  # -----
+  # ----- Average wavelet variances across chromosomes
 
   # merge with weights
   wv <- merge(wv, wav_weights, by = c(chromosome, "level"), all=T)
@@ -133,8 +138,9 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
   propvarcols <- paste0("propvar.",signals)
   setnames(propvar, varcols, propvarcols)
 
-  # 3. average over chromosomes
-  propvar <- propvar[, lapply(.SD, mean), .SDcols = propvarcols, by = level]
+  # 3. average over chromosomes, weight by chromosome length
+  propvar <- merge(propvar, chrlen)
+  propvar <- propvar[, lapply(.SD, weighted.mean, w=weight), .SDcols = propvarcols, by = level]
 
   allvardecomp <- merge(wv_mag, propvar)
 

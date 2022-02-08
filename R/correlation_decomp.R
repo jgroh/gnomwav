@@ -1,21 +1,13 @@
 gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
+
+  # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
-  wav_weights <- w[, .(n.wavelets = .N), by = c(chromosome, "level")]
-  wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level]
 
-  wv <- gnom_var_decomp(data = data, chromosome = chromosome, signals = signals, avg.over.chroms = T, rm.boundary = rm.boundary )
+  # compute correlations
   cols <- paste0("coefficient.", signals)
+  cor_tbl <- w[, .(cor = cor(get(cols[1]),get(cols[2]))), by =  level]
 
-  cov_tbl <- w[, .(cov = mean(get(cols[1])*get(cols[2]))), by =  level]
-
-  varcols <- paste0("variance.",signals)
-  cov_tbl <- merge(cov_tbl, wv, all=T)
-
-  corcol <- paste0("pearson.cor.", paste(signals, collapse ="."))
-  cor_tbl <- cov_tbl[, .(level, cor = cov/sqrt(get(varcols[1])*get(varcols[1])))]
-  setnames(cor_tbl, "cor", corcol)
-
-  # chromosome scale
+  # compute chromosome-scale correlation
   totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
   setnames(totalmeans, signals, paste0("totalmean.",signals))
 
@@ -29,11 +21,14 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   # 4. weighted covariance
   totalmeancols <- paste0("totalmean.", signals)
-  chrcov <- chrmeans[, mean((get(signals[1]) - get(totalmeancols[1]))*(get(signals[2]) - get(totalmeancols[2])))]
+  chrcov <- chrmeans[, mean(weight*(get(signals[1]) - get(totalmeancols[1]))*(get(signals[2]) - get(totalmeancols[2])))]
 
-  cor_tbl[level == chromosome, (corcol) := chrcov][]
+  wv <- gnom_var_decomp(data = data, chromosome = chromosome, signals = signals, avg.over.chroms = T)
+  varcols <- paste0("variance.", signals)
+  denom <- wv[level == chromosome, sqrt(get(varcols[1])*get(varcols[2]))]
 
-  return(cor_tbl)
+  return(rbind(cor_tbl,
+               data.table(level = chromosome, cor = chrcov/denom)))
 
 }
 
@@ -45,35 +40,39 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
   z <- summary(lm(f, data = data))
   theta_n <- z$adj.r.squared
 
-  # p values
-  zcoeff <- z$coefficients
-  pvals <- zcoeff[,4][xvars]
-  names(pvals) <- paste0("pval.", gsub("coefficient.", "", xvars))
-
   # estimate of r squared
   theta_n <- z$adj.r.squared
 
-  # pseudovalues
-  ps <- vector()
-  cnt <- 0
-  n <- length(data[, unique(get(chromosome))])
+  # don't construct jacknife CIs if fewer than X # of chromosome
+  if ( data[, length(unique(get(chromosome)))] < 3){
+    rsqrd <- theta_n
+    lower <- as.double(NA)
+    upper <- as.double(NA)
 
-  # note: include some check here to make sure there are sufficiently many chromosomes
-  for(i in data[, unique(get(chromosome))]){
-    cnt <- cnt + 1
-    theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$adj.r.squared
-    ps[cnt] <- n*theta_n - (n-1)*theta_i
+  } else { # construct CIs
+
+    # pseudovalues
+    ps <- vector()
+    cnt <- 0
+    n <- length(data[, unique(get(chromosome))])
+
+    # note: include some check here to make sure there are sufficiently many chromosomes
+    for(i in data[, unique(get(chromosome))]){
+      cnt <- cnt + 1
+      theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$adj.r.squared
+      ps[cnt] <- n*theta_n - (n-1)*theta_i
+    }
+
+    # 95% confidence interval
+    rsqrd <- mean(ps)
+    ps_var <- var(ps)
+
+    lower <- rsqrd - 1.96*sqrt(ps_var/n)
+    upper <- rsqrd + 1.96*sqrt(ps_var/n)
+
   }
 
-  # 95% confidence interval
-  ps_mean <- mean(ps)
-  ps_var <- var(ps)
-
-  low <- ps_mean - 1.96*sqrt(ps_var/n)
-  up <- ps_mean + 1.96*sqrt(ps_var/n)
-
-  return( c(list(rsqrd = ps_mean, ci95_lower = low, ci95_upper = up),
-            as.list(pvals)))
+  return( c(list(rsqrd = rsqrd, ci95_lower = lower, ci95_upper = upper)))
 
 }
 
@@ -99,5 +98,7 @@ wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   return(rbind(rsqrd_tbl, rsqrd_chr))
 }
 
+#load("~/workspace/selection-against-introgression/datasets/swordtail_TOTO_ACUA/ACUA_2018/gnomP_10chr.RData")
+#gnomP <- gnomP[ID==ID[1]]
 
 
