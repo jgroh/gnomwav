@@ -32,6 +32,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
 }
 
+
 jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
 
   f <- as.formula(paste(yvar, paste(xvars, collapse=" + "), sep=" ~ "))
@@ -64,7 +65,8 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
     }
 
     # 95% confidence interval
-    rsqrd <- mean(ps)
+    #rsqrd <- mean(ps)
+    rsqrd <- theta_n
     ps_var <- var(ps)
 
     lower <- rsqrd - 1.96*sqrt(ps_var/n)
@@ -98,7 +100,7 @@ wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   return(rbind(rsqrd_tbl, rsqrd_chr))
 }
 
-#load("~/workspace/selection-against-introgression/datasets/swordtail_TOTO_ACUA/ACUA_2018/gnomP_10chr.RData")
+#load("~/workspace/selection-against-introgression/datasets/swordtail_TOTO_ACUA/ACUA_2018/gnomP.RData")
 #gnomP <- gnomP[ID==ID[1]]
 
 
