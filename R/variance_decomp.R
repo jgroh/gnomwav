@@ -55,13 +55,18 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
 
   # If multiple chromosomes present:
   n_chrom <- data[, length(unique(get(chromosome)))]
-  if ( n_chrom > 1 ) {
+  wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
+
+  # number of classes of decomposition level
+  n_class <- wav_weights[, .(nlevs = length(unique(level))), by = chromosome][, length(unique(nlevs))]
+
+  if ( n_chrom > 1 && n_class > 1 ) {
 
     # compute weights for each chromosome at each level of the decomposition
     # based on the number of wavelets present at that level on the given chromosome
     wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
 
-    # add NA weights for chromosomes missing certain levels
+    # add NA weights for chromosomes missing certain levels (only if the decomp levels actually differ across chromosomes)
     for(g in unique(wav_weights[, get(chromosome)])){
       absent <- setdiff(wav_weights[, level], wav_weights[get(chromosome) == g, level])
 
@@ -72,9 +77,10 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
       wav_weights <- rbind(wav_weights, abs_tbl)
     }
 
-    wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
 
   }
+
+  wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
 
   # compute wavelet variances using average of squared wavelet coefficients
   wv <- m[, lapply(.SD, var), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
