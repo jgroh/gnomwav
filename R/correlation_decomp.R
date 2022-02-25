@@ -94,16 +94,16 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
       ps[cnt] <- n*theta_n - (n-1)*theta_i
     }
 
-    rsqrd_jack <- mean(ps) # bias-corrected point estimate
+    rsqrd <- mean(ps) # bias-corrected point estimate
 
     # 95% confidence intervals
     se <- sqrt(var(ps)/n)
-    lower <- rsqrd_jack - 1.96*se
-    upper <- rsqrd_jack + 1.96*se
+    lower <- rsqrd - 1.96*se
+    upper <- rsqrd + 1.96*se
 
   }
 
-  return( c(list(rsqrd = rsqrd_jack, ci95_lower = lower, ci95_upper = upper)))
+  return( c(list(rsqrd = rsqrd, ci95_lower = lower, ci95_upper = upper)))
 
 }
 
