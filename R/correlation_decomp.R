@@ -1,16 +1,14 @@
-gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
-
+cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
-
-  # compute correlations
   cols <- paste0("coefficient.", signals)
+
+  # wavelet correlations
   cor_tbl <- w[, .(cor = cor(get(cols[1]),get(cols[2]))), by =  level]
 
-  # compute chromosome-scale correlation
+  # chromosome-scale correlation:
   totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
-  setnames(totalmeans, signals, paste0("totalmean.",signals))
-
+  setnames(totalmeans, signals, paste0("totalmean.", signals))
   chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = signals]
 
   # chromosome lengths as weights
@@ -19,7 +17,8 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
   chrmeans <- merge(chrmeans,chrlen)
   chrmeans[, names(totalmeans) := totalmeans]
 
-  # 4. weighted covariance
+
+  # 4. weighted chromosome-scale covariance
   totalmeancols <- paste0("totalmean.", signals)
   chrcov <- chrmeans[, mean(weight*(get(signals[1]) - get(totalmeancols[1]))*(get(signals[2]) - get(totalmeancols[2])))]
 
@@ -27,9 +26,39 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
   varcols <- paste0("variance.", signals)
   denom <- wv[level == chromosome, sqrt(get(varcols[1])*get(varcols[2]))]
 
-  return(rbind(cor_tbl,
-               data.table(level = chromosome, cor = chrcov/denom)))
+  cor_tbl <- rbind(cor_tbl,
+                  data.table(level = chromosome, cor = chrcov/denom))
+  return(cor_tbl)
 
+}
+
+
+
+gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
+
+  cor_n <- cor_tbl(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
+  n <- data[, length(unique(get(chromosome)))]
+  setnames(cor_n, "cor", "cor_n")
+
+  # this outputs a table of cors for all levels for each dropped chromosome
+  cortbl_drop1 <- data[, cor_tbl(data[get(chromosome) != .BY],
+                             chromosome=chromosome,
+                             signals=signals,
+                             rm.boundary = rm.boundary),
+                     by = chromosome]
+  cortbl_drop1 <- merge(cortbl_drop1, cor_n, by = "level")
+
+  # jacknife bias-corrected estimates
+  cor_jack <- cortbl_drop1[, ps := n*(cor_n) - (n-1)*cor][, .(cor_jack = mean(ps)), by = level]
+
+  # jacknife standard errors
+  cor_se_jack <- cortbl_drop1[, .(se = sqrt(var(cor)/n)), by = level]
+
+  output <- merge(cor_jack, cor_se_jack)
+  output[, c("lower95ci", "upper95ci") := .(cor_jack - 1.96*se, cor_jack + 1.96*se)][, se := NULL][]
+  output <- merge(cor_n, output, by = "level")
+
+  return(output)
 }
 
 
@@ -39,42 +68,42 @@ jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
 
   # model using all data
   z <- summary(lm(f, data = data))
-  theta_n <- z$adj.r.squared
 
   # estimate of r squared
-  theta_n <- z$adj.r.squared
+  theta_n <- z$r.squared
+
+  n <- length(data[, unique(get(chromosome))])
 
   # don't construct jacknife CIs if fewer than X # of chromosome
-  if ( data[, length(unique(get(chromosome)))] < 3){
+  if ( n < 3){
     rsqrd <- theta_n
     lower <- as.double(NA)
     upper <- as.double(NA)
 
   } else { # construct CIs
 
-    # pseudovalues
+    # jacknife estimates
+    theta_i <- vector()
     ps <- vector()
     cnt <- 0
-    n <- length(data[, unique(get(chromosome))])
 
     # note: include some check here to make sure there are sufficiently many chromosomes
     for(i in data[, unique(get(chromosome))]){
       cnt <- cnt + 1
-      theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$adj.r.squared
+      theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$r.squared
       ps[cnt] <- n*theta_n - (n-1)*theta_i
     }
 
-    # 95% confidence interval
-    #rsqrd <- mean(ps)
-    rsqrd <- theta_n
-    ps_var <- var(ps)
+    rsqrd_jack <- mean(ps) # bias-corrected point estimate
 
-    lower <- rsqrd - 1.96*sqrt(ps_var/n)
-    upper <- rsqrd + 1.96*sqrt(ps_var/n)
+    # 95% confidence intervals
+    se <- sqrt(var(ps)/n)
+    lower <- rsqrd_jack - 1.96*se
+    upper <- rsqrd_jack + 1.96*se
 
   }
 
-  return( c(list(rsqrd = rsqrd, ci95_lower = lower, ci95_upper = upper)))
+  return( c(list(rsqrd = rsqrd_jack, ci95_lower = lower, ci95_upper = upper)))
 
 }
 
@@ -99,8 +128,3 @@ wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
                                                      yvar = yvar)])
   return(rbind(rsqrd_tbl, rsqrd_chr))
 }
-
-#load("~/workspace/selection-against-introgression/datasets/swordtail_TOTO_ACUA/ACUA_2018/gnomP.RData")
-#gnomP <- gnomP[ID==ID[1]]
-
-
