@@ -37,8 +37,12 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   cor_n <- cor_tbl(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
-  n <- data[, length(unique(get(chromosome)))]
   setnames(cor_n, "cor", "cor_n")
+
+  n_tot <- data[, length(unique(get(chromosome)))]
+
+  w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
+  nlev <- w[, .SD[, .(nlev = length(unique(get(chromosome))))], by = level]
 
   # this outputs a table of cors for all levels for each dropped chromosome
   cortbl_drop1 <- data[, cor_tbl(data[get(chromosome) != .BY],
@@ -49,10 +53,11 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
   cortbl_drop1 <- merge(cortbl_drop1, cor_n, by = "level")
 
   # jacknife bias-corrected estimates
-  cor_jack <- cortbl_drop1[, ps := n*(cor_n) - (n-1)*cor][, .(cor_jack = mean(ps)), by = level]
+  cortbl_drop1 <- merge(cortbl_drop1, nlev)
+  cor_jack <- cortbl_drop1[, ps := nlev*(cor_n) - (nlev-1)*cor][, .(cor_jack = mean(ps)), by = level]
 
   # jacknife standard errors
-  cor_se_jack <- cortbl_drop1[, .(se = sqrt(var(cor)/n)), by = level]
+  cor_se_jack <- cortbl_drop1[, .(se = sqrt(var(cor)/nlev)), by = level]
 
   output <- merge(cor_jack, cor_se_jack)
   output[, c("lower95ci", "upper95ci") := .(cor_jack - 1.96*se, cor_jack + 1.96*se)][, se := NULL][]
