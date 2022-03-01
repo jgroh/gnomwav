@@ -57,7 +57,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
   cor_jack <- cortbl_drop1[, ps := nlev*(cor_n) - (nlev-1)*cor][, .(cor_jack = mean(ps)), by = level]
 
   # jacknife standard errors
-  cor_se_jack <- cortbl_drop1[, .(se = sqrt(var(cor)/nlev)), by = level]
+  cor_se_jack <- cortbl_drop1[, .(se = ifelse(nlev[1] != 1, sqrt(var(cor)/nlev[1]), as.double(NA))), by = level]
 
   output <- merge(cor_jack, cor_se_jack)
   output[, c("lower95ci", "upper95ci") := .(cor_jack - 1.96*se, cor_jack + 1.96*se)][, se := NULL][]
