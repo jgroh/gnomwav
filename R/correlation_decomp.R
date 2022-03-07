@@ -67,48 +67,70 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 }
 
 
-jacknife_rsqrd <- function(data, yvar, xvars, chromosome){
+jacknife_rsqrd <- function(dt, y, x, chromosome){
 
-  f <- as.formula(paste(yvar, paste(xvars, collapse=" + "), sep=" ~ "))
+  f <- as.formula(paste(y, paste(x, collapse=" + "), sep=" ~ "))
 
   # model using all data
-  z <- summary(lm(f, data = data))
+  z <- summary(lm(f, data = dt))
+
+  # linear model coeffs
+  lm_coeffs <- z$coefficients[-1,1]
 
   # estimate of r squared
-  theta_n <- z$r.squared
+  rsqrd_n <- z$r.squared
+  names(rsqrd_n) <- "rsqrd"
 
-  n <- length(data[, unique(get(chromosome))])
+  estimates <- unlist(c(lm_coeffs, rsqrd_n) )
+
+  n <- length(dt[, unique(get(chromosome))])
 
   # don't construct jacknife CIs if fewer than X # of chromosome
-  if ( n < 3){
-    rsqrd <- theta_n
-    lower <- as.double(NA)
-    upper <- as.double(NA)
+  if ( n < 4){
+    nms <- names(estimates)
+    output <- data.table(estimates)
+    output[, variable := as.character(nms)]
+    output[, jn_se := as.double(NA)]
+    output[, jn_bc_estimate := as.double(NA)][]
+    setnames(output, "estimates", "direct_estimate")
+    setcolorder(output, c("variable", "direct_estimate", "jn_bc_estimate", "jn_se"))
 
-  } else { # construct CIs
+  } else { # construct jacknife CIs for rsquared and slopes
 
-    # jacknife estimates
-    theta_i <- vector()
-    ps <- vector()
-    cnt <- 0
+    jack_estimates <- data.table()
 
     # note: include some check here to make sure there are sufficiently many chromosomes
-    for(i in data[, unique(get(chromosome))]){
-      cnt <- cnt + 1
-      theta_i <- summary(lm(f, data = data[get(chromosome) != i,]))$r.squared
-      ps[cnt] <- n*theta_n - (n-1)*theta_i
+    for(i in dt[, unique(get(chromosome))]){
+
+      z <- summary(lm(f, data = dt[get(chromosome) != i,]))
+
+      jack_estimates <- rbind(jack_estimates, c(as.list(z$coefficients[-1, 1]),
+                                      rsqrd = z$r.squared),
+                              fill=T)
     }
 
-    rsqrd <- mean(ps) # bias-corrected point estimate
 
-    # 95% confidence intervals
-    se <- sqrt(var(ps)/n)
-    lower <- rsqrd - 1.96*se
-    upper <- rsqrd + 1.96*se
+    pseudovals <- jack_estimates[, lapply(seq_along(names(.SD)),
+                            function(i, y, nm){ n*estimates[nm[i]] - (n-1)*y[[i]]  },
+                            y = .SD, nm = names(.SD)),
+                   .SDcols = c(x, "rsqrd")]
+    setnames(pseudovals, new = c(x, "rsqrd"))
+
+    # bias-corrected estimates: mean of pseudovalues
+    jack_bc_estimates <- pseudovals[, lapply(.SD, mean)]
+
+    output <- melt(jack_bc_estimates, measure.vars = names(jack_bc_estimates), value.name = "jn_bc_estimate")
+    output[, variable := as.character(variable)]
+    # jacknife standard errors
+    jack_se <- pseudovals[, lapply(.SD, function(x){ sqrt(var(x)/n) } )]
+    output <- merge(output, melt(jack_se, measure.vars = names(jack_se), value.name = "jn_se"))
+
+    output[, direct_estimate := estimates][]
+    setcolorder(output, c("variable", "direct_estimate", "jn_bc_estimate", "jn_se"))
 
   }
 
-  return( c(list(rsqrd = rsqrd, ci95_lower = lower, ci95_upper = upper)))
+  return(output)
 
 }
 
@@ -117,10 +139,10 @@ wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
   # calculate r squared and 95% confidence intervals across scales
-  rsqrd_tbl <- w[, jacknife_rsqrd(.SD,
+  rsqrd_tbl <- w[level %in% paste0("d", 1:15), jacknife_rsqrd(dt = .SD,
                                   chromosome = chromosome,
-                                  xvars = paste0("coefficient.",xvars),
-                                  yvar = paste0("coefficient.",yvar)),
+                                  x = paste0("coefficient.",xvars),
+                                  y = paste0("coefficient.",yvar)),
                  by = level]
 
   # calculate r squared and 95% for chromosome-level
@@ -129,7 +151,7 @@ wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   rsqrd_chr <- cbind(level = chromosome,
                            chrmeans[, jacknife_rsqrd(.SD,
                                                      chromosome = chromosome,
-                                                     xvars = xvars,
-                                                     yvar = yvar)])
+                                                     x = xvars,
+                                                     y = yvar)])
   return(rbind(rsqrd_tbl, rsqrd_chr))
 }
