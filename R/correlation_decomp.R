@@ -1,10 +1,15 @@
 cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
+
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   cols <- paste0("coefficient.", signals)
 
   # wavelet correlations
   cor_tbl <- w[, .(cor = cor(get(cols[1]),get(cols[2]))), by =  level]
+
+  if(is.na(chromosome)){
+    return(cor_tbl)
+  }
 
   # chromosome-scale correlation:
   totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
@@ -17,7 +22,6 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   chrmeans <- merge(chrmeans,chrlen)
   chrmeans[, names(totalmeans) := totalmeans]
 
-
   # 4. weighted chromosome-scale covariance
   totalmeancols <- paste0("totalmean.", signals)
   chrcov <- chrmeans[, mean(weight*(get(signals[1]) - get(totalmeancols[1]))*(get(signals[2]) - get(totalmeancols[2])))]
@@ -29,7 +33,6 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   cor_tbl <- rbind(cor_tbl,
                   data.table(level = chromosome, cor = chrcov/denom))
   return(cor_tbl)
-
 }
 
 
@@ -43,6 +46,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   nlev <- w[, .SD[, .(nlev = length(unique(get(chromosome))))], by = level]
+  nlev <- rbind(nlev, data.table(level = "chr", nlev = n_tot))
 
   # this outputs a table of cors for all levels for each dropped chromosome
   cortbl_drop1 <- data[, cor_tbl(data[get(chromosome) != .BY],
@@ -53,7 +57,8 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
   cortbl_drop1 <- merge(cortbl_drop1, cor_n, by = "level")
 
   # jacknife bias-corrected estimates
-  cortbl_drop1 <- merge(cortbl_drop1, nlev)
+  cortbl_drop1 <- merge(cortbl_drop1, nlev, all = T)
+
   cor_jack <- cortbl_drop1[, ps := nlev*(cor_n) - (nlev-1)*cor][, .(cor_jack = mean(ps)), by = level]
 
   # jacknife standard errors

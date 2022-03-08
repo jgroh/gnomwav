@@ -73,22 +73,40 @@ multi_modwts <- function(data, chromosome, signals, rm.boundary=TRUE){
   setDT(data)
   d <- copy(data)
 
-  allcols <- wt_levels(d, chromosome)
+  if (is.na(chromosome)){
+    d2 <- d[, multi_modwt_1var(u = get(signals[1]), all_cols = allcols, rm.boundary = rm.boundary)]
+    d2[, position.id := seq_len(.N), by = "level"]
 
-  # modwt on first signal
-  d2 <- d[, multi_modwt_1var(u = get(signals[1]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
-  d2[, position.id := seq_len(.N), by = c(chromosome, "level")]
-  setnames(d2, "coefficient", paste0("coefficient.", signals[1]))
+    setnames(d2, "coefficient", paste0("coefficient.", signals[1]))
 
-  # modwt for other signals and combine result
-  if (length(signals) > 1) {
-    for(i in 2:length(signals)){
-      temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
-      temp[, position.id := seq_len(.N), by = c(chromosome, "level")]
-      setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
-      d2 <- merge(d2, temp, by = c(chromosome, "level", "position.id"))
+    if (length(signals) > 1) {
+      for(i in 2:length(signals)){
+        temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary)]
+        temp[, position.id := seq_len(.N), by = "level"]
+        setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
+        d2 <- merge(d2, temp, by = c("level", "position.id"))
+      }
+    }
+  } else{
+
+    allcols <- wt_levels(d, chromosome)
+
+    # modwt on first signal
+    d2 <- d[, multi_modwt_1var(u = get(signals[1]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
+    d2[, position.id := seq_len(.N), by = c(chromosome, "level")]
+    setnames(d2, "coefficient", paste0("coefficient.", signals[1]))
+
+    # modwt for other signals and combine result
+    if (length(signals) > 1) {
+      for(i in 2:length(signals)){
+        temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
+        temp[, position.id := seq_len(.N), by = c(chromosome, "level")]
+        setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
+        d2 <- merge(d2, temp, by = c(chromosome, "level", "position.id"))
+      }
     }
   }
+
 
   return(na.omit(d2, cols = paste0("coefficient.", signals)))
 }
