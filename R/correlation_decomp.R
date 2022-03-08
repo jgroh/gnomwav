@@ -20,18 +20,12 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   chrlen <- data[, .(weight = .N), by = chromosome]
   chrlen[, weight := weight/sum(weight)]
   chrmeans <- merge(chrmeans,chrlen)
-  chrmeans[, names(totalmeans) := totalmeans]
 
   # 4. weighted chromosome-scale covariance
-  totalmeancols <- paste0("totalmean.", signals)
-  chrcov <- chrmeans[, mean(weight*(get(signals[1]) - get(totalmeancols[1]))*(get(signals[2]) - get(totalmeancols[2])))]
-
-  wv <- gnom_var_decomp(data = data, chromosome = chromosome, signals = signals, avg.over.chroms = T)
-  varcols <- paste0("variance.", signals)
-  denom <- wv[level == chromosome, sqrt(get(varcols[1])*get(varcols[2]))]
+  chrcor <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight, cor = TRUE)$cor[1, 2]
 
   cor_tbl <- rbind(cor_tbl,
-                  data.table(level = chromosome, cor = chrcov/denom))
+                  data.table(level = chromosome, cor = chrcor))
   return(cor_tbl)
 }
 
