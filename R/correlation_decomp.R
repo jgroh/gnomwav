@@ -21,7 +21,7 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   chrlen[, weight := weight/sum(weight)]
   chrmeans <- merge(chrmeans,chrlen)
 
-  # 4. weighted chromosome-scale covariance
+  # 4. weighted chromosome-scale correlation
   chrcor <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight, cor = TRUE)$cor[1, 2]
 
   cor_tbl <- rbind(cor_tbl,

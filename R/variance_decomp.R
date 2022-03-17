@@ -51,9 +51,16 @@
 #' with(wv, plot(propvar.y ~ level))
 #'
 gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
+
   m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
-  # If multiple chromosomes present:
+  if ( is.na(chromosome) ){
+    wv <- m[, lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = level]
+    varcols <- paste0("variance.", signals)
+    setnames(wv, paste0("coefficient.",signals), varcols)
+    return(wv)
+  }
+
   n_chrom <- data[, length(unique(get(chromosome)))]
   wav_weights <- m[, .(n.wavelets = .N), by = c(chromosome, "level")]
 
@@ -76,24 +83,17 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
       setnames(abs_tbl,  "chromosome", chromosome)
       wav_weights <- rbind(wav_weights, abs_tbl)
     }
-
-
   }
 
   wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
 
   # compute wavelet variances using average of squared wavelet coefficients
-  wv <- m[, lapply(.SD, var), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
+  wv <- m[, lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
   varcols <- paste0("variance.", signals)
   setnames(wv, paste0("coefficient.",signals), varcols)
 
   # option to return chromosome results
   if (!avg.over.chroms) {
-    return(wv)
-  }
-
-  # if only a single chromosome present, return
-  if (n_chrom == 1){
     return(wv)
   }
 
@@ -165,6 +165,7 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
 
   allvardecomp <- rbind(allvardecomp, data.table(level = chromosome, chrtbl))
   return(allvardecomp)
+
 }
 #
 #
