@@ -147,7 +147,7 @@ wvlt_lm <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
   # calculate r squared and 95% confidence intervals across scales
-  rsqrd_tbl <- w[level %in% paste0("d", 1:15), jacknife_lm(dt = .SD,
+  rsqrd_tbl <- w[, jacknife_lm(dt = .SD,
                                   chromosome = chromosome,
                                   x = paste0("coefficient.",xvars),
                                   y = paste0("coefficient.",yvar)),
