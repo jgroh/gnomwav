@@ -66,7 +66,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 }
 
 
-jacknife_rsqrd <- function(dt, y, x, chromosome){
+jacknife_lm <- function(dt, y, x, chromosome){
 
   f <- as.formula(paste(y, paste(x, collapse=" + "), sep=" ~ "))
 
@@ -133,22 +133,32 @@ jacknife_rsqrd <- function(dt, y, x, chromosome){
 
 }
 
-wvlt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
+
+#data <- data.table(x = rnorm(100), y = rnorm(100), z = rnorm(100), chr = rep(c(1,2,3,4,5), 20))
+#setkey(data, chr)
+#xvars <- c("x", "y")
+#yvar <- "z"
+#chromosome <- "chr"
+#dt <- data
+#rm.boundary <- T
+
+wvlt_lm <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
 
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
   # calculate r squared and 95% confidence intervals across scales
-  rsqrd_tbl <- w[level %in% paste0("d", 1:15), jacknife_rsqrd(dt = .SD,
+  rsqrd_tbl <- w[level %in% paste0("d", 1:15), jacknife_lm(dt = .SD,
                                   chromosome = chromosome,
                                   x = paste0("coefficient.",xvars),
                                   y = paste0("coefficient.",yvar)),
                  by = level]
+  rsqrd_tbl[, variable := gsub("coefficient.","", variable)]
 
   # calculate r squared and 95% for chromosome-level
   chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = c(xvars,yvar)]
 
   rsqrd_chr <- cbind(level = chromosome,
-                           chrmeans[, jacknife_rsqrd(.SD,
+                           chrmeans[, jacknife_lm(.SD,
                                                      chromosome = chromosome,
                                                      x = xvars,
                                                      y = yvar)])
