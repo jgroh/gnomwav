@@ -55,7 +55,9 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
   m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
   if ( is.na(chromosome) ){
-    wv <- m[, lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = level]
+    wvd <- m[grepl("d", level), lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = level]
+    wvs <- m[grepl("s", level), lapply(.SD, function(x){mean(x^2) - mean(x)^2}), .SDcols = paste0("coefficient.",signals), by = level]
+    wv <- rbind(wvd, wvs)
     varcols <- paste0("variance.", signals)
     setnames(wv, paste0("coefficient.",signals), varcols)
     return(wv)
@@ -88,7 +90,10 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.ove
   wav_weights[, weight := n.wavelets/sum(n.wavelets), by = level][, n.wavelets := NULL]
 
   # compute wavelet variances using average of squared wavelet coefficients
-  wv <- m[, lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
+  wvd <- m[grepl("d", level, fixed = T), lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
+  wvs <- m[grepl("s", level, fixed = T), lapply(.SD, function(x){mean(x^2) - mean(x)^2}), .SDcols = paste0("coefficient.",signals), by = c(chromosome,"level")]
+  wv <- rbind(wvd, wvs)
+
   varcols <- paste0("variance.", signals)
   setnames(wv, paste0("coefficient.",signals), varcols)
 
