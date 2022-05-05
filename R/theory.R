@@ -53,7 +53,7 @@ wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
 #'
 #' @param n.pop
 #' @param n.sample
-#' @param scale
+#' @param level
 #' @param gen
 #' @param alpha
 #'
@@ -61,7 +61,7 @@ wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
 #' @export
 #'
 #' @examples
-wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, scale, gen, alpha){
+wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, level, gen, alpha){
   genlist <- list()
 
   # loop over generations
@@ -69,7 +69,7 @@ wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, scale, gen,
     t.gens <- as.numeric(gen[i])
 
     # make grid of parameters over which we evaluate the function
-    grd <- expand.grid(n.sample=n.sample, n.pop=n.pop, scale=scale, stringsAsFactors = F)
+    grd <- expand.grid(n.sample=n.sample, n.pop=n.pop, level=level, stringsAsFactors = F)
     grd <- grd[grd$n.pop >= grd$n.sample,] # we only want evaluation where the sample is less than or equal to the population size
 
     grd$gen <- rep(t.gens, nrow(grd)) # rep since we are inside the loop for a specific generation
@@ -77,7 +77,7 @@ wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, scale, gen,
     grd$variance <- vector(length = nrow(grd)) # this is the vector we fill in the calculation
 
     for(q in 1:nrow(grd)){
-      j <- grd[q,]$scale
+      j <- grd[q,]$level
       ns <- grd[q,]$n.sample
       np <- grd[q,]$n.pop
 

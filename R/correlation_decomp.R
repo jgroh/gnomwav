@@ -40,7 +40,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   nlev <- w[, .SD[, .(nlev = length(unique(get(chromosome))))], by = level]
-  nlev <- rbind(nlev, data.table(level = "chr", nlev = n_tot))
+  nlev <- rbind(nlev, data.table(level = chromosome, nlev = n_tot))
 
   # this outputs a table of cors for all levels for each dropped chromosome
   cortbl_drop1 <- data[, cor_tbl(data[get(chromosome) != .BY],
