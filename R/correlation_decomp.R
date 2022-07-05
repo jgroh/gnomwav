@@ -1,11 +1,45 @@
+
+cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
+  # get modwt coefficients
+  w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
+  cols <- paste0("coefficient.", signals)
+
+  # wavelet covariances
+  cov_tbl <- w[, .(cov = mean(get(cols[1])*get(cols[2]))), by = level]
+
+  if(is.na(chromosome)){
+    return(cov_tbl)
+  }
+
+  # chromosome-scale covariance:
+  totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
+  setnames(totalmeans, signals, paste0("totalmean.", signals))
+  chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = signals]
+
+  # chromosome lengths as weights
+  chrlen <- data[, .(weight = .N), by = chromosome]
+  chrlen[, weight := weight/sum(weight)]
+  chrmeans <- merge(chrmeans,chrlen)
+
+  # 4. weighted chromosome-scale covariance
+  chrcov <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight)$cov[1, 2]
+
+  cov_tbl <- rbind(cov_tbl,
+                   data.table(level = chromosome, cor = chrcov))
+  return(cor_tbl)
+}
+
+
+
 cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   cols <- paste0("coefficient.", signals)
 
-  # wavelet correlations
-  cor_tbl <- w[, .(cor = cor(get(cols[1]),get(cols[2]))), by =  level]
+  # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
+
+  cor_tbl <- w[, mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2))), by = level]
 
   if(is.na(chromosome)){
     return(cor_tbl)
@@ -64,6 +98,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   return(output)
 }
+
 
 
 jacknife_lm <- function(dt, y, x, chromosome){
