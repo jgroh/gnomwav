@@ -39,7 +39,7 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
 
-  cor_tbl <- w[, mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2))), by = level]
+  cor_tbl <- w[, .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
 
   if(is.na(chromosome)){
     return(cor_tbl)

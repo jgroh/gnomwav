@@ -1,12 +1,5 @@
-#' Continuous Haar Wavelet
-#'
-#' @param y_H
-#' @param j_H
-#'
-#' @return
-#' @export
-#'
-#' @examples
+# Continuous Haar Wavelet
+
 haarCts <- function(y_H,j_H,k=1){
 
   # define wavelet support
@@ -22,18 +15,9 @@ haarCts <- function(y_H,j_H,k=1){
 
 # Expected wavelet variance: approximate integrand ------------------------------------------
 # assumes infinite population
-#' Title
-#'
-#' @param x
-#' @param u
-#' @param n.sample
-#' @param alpha
-#' @param t.gens
-#'
-#' @return
-#'
-#' @examples
-wav_var_approx <- function(x, u, n.sample, alpha, t.gens) {
+
+wav_var_approx <- function(x, expected.crossovers.per.unit.dist, n.sample, alpha, t.gens) {
+  u <- expected.crossovers.per.unit.dist
   (1/n.sample)*(
     alpha*exp(-t.gens*u*abs(x[2]-x[1])) +
       (alpha^2)*(1-exp(-t.gens*u*abs(x[2]-x[1])))
@@ -42,19 +26,9 @@ wav_var_approx <- function(x, u, n.sample, alpha, t.gens) {
 
 # Expected wavelet variance: exact  integrand ------------------------------------------
 
-#' Title
-#'
-#' @param x
-#' @param expected.crossovers.per.unit.dist
-#' @param n.pop
-#' @param n.sample
-#' @param alpha
-#' @param t.gens
-#'
-#' @return
-#'
-#'
-#' @examples
+# this is the part of the integrand that doesn't involve the wavelets. bc we're using Haar wavelets
+# the product of wavelets in the integrand is piecewise constant so the integral is just broken up into 2 pieces
+
 wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
                           n.pop, n.sample, alpha, t.gens) {
   u <- expected.crossovers.per.unit.dist
@@ -71,19 +45,8 @@ wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
   )
 }
 
-#' Title
-#'
-#' @param n.pop
-#' @param n.sample
-#' @param level
-#' @param gen
-#' @param alpha
-#'
-#' @return
-#' @export
-#'
-#' @examples
-wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, level, gen, alpha){
+
+wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
   genlist <- list()
 
   # loop over generations
@@ -104,14 +67,14 @@ wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, level, gen,
       np <- grd[q,]$n.pop
 
       if(n.pop == Inf){ # use infinite population approximation
-        part1 <- adaptIntegrate(wav_var_approx, n.sample = ns, expected.crossovers.per.unit.dist=unit.scale, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,0),
+        part1 <- adaptIntegrate(wav_var_approx, n.sample = ns, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,0),
                                 upperLimit = c(2^(j-1),2^(j-1)))
-        part2 <- adaptIntegrate(wav_var_approx, n.sample = ns, expected.crossovers.per.unit.dist=unit.scale, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,2^(j-1)),
+        part2 <- adaptIntegrate(wav_var_approx, n.sample = ns, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,2^(j-1)),
                                 upperLimit = c(2^(j-1),(2^j)))
       } else { # use exact formula
-        part1 <- adaptIntegrate(wav_var_exact, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.scale, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,0),
+        part1 <- adaptIntegrate(wav_var_exact, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,0),
                                 upperLimit = c(2^(j-1),2^(j-1)))
-        part2 <- adaptIntegrate(wav_var_exact, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.scale, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,2^(j-1)),
+        part2 <- adaptIntegrate(wav_var_exact, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,2^(j-1)),
                                 upperLimit = c(2^(j-1),(2^j)))
       }
       grd$variance[q] <- ((part1$integral - part2$integral)/(2^(2*j-1)))
@@ -125,19 +88,8 @@ wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.scale, level, gen,
 
 
 
-#' m
-#' Transition probability matrix for haplotype state
-#'
-#' @param l_M
-#' @param N_M
-#' @param r_M
-#' @param tau_M
-#'
-#' @return
-#' @export
-#'
-#' @examples
-trnstn_mat <- function(l_M,N_M,r_M=1/1024,tau_M){
+
+trnstn_mat <- function(l_M,N_M,r_M,tau_M){
   # l is a two vector of locus positions
   # N_M is population size
   # r_M is recombination distance per unit distance
@@ -156,21 +108,8 @@ trnstn_mat <- function(l_M,N_M,r_M=1/1024,tau_M){
 }
 
 
-#' wvBottleneckIntegrand
-#'
-#' @param x_I
-#' @param J_I
-#' @param Nvec_I
-#' @param genvec_I
-#' @param r_I
-#' @param n.sample_I
-#' @param alpha_I
-#'
-#' @return
-#' @export
-#'
-#' @examples
-wvBottleneckIntegrand <- function(x_I,J_I,Nvec_I,genvec_I,r_I=1/1024,n.sample_I,alpha_I=0.5){
+
+wvBottleneckIntegrand <- function(x_I,J_I,Nvec_I,genvec_I,r_I,n.sample_I,alpha_I){
   # x is a 2-vector of neutral locus positions
 
   # Nvec is number of haploid chromosomes, a vector through time
@@ -195,11 +134,11 @@ wvBottleneckIntegrand <- function(x_I,J_I,Nvec_I,genvec_I,r_I=1/1024,n.sample_I,
 
     # matrix product of transition probability matrices
     # leftmost matrix is starting from the present
-    P <- m(l_M=x_I, N_M=Nvec_I[length(Nvec_I)], tau_M=genvec_I[length(genvec_I)])
+    P <- trnstn_mat(l_M=x_I, r_M = r_I, N_M=Nvec_I[length(Nvec_I)], tau_M=genvec_I[length(genvec_I)])
 
     if(length(genvec_I) > 1){
       for(i in (length(genvec_I)-1):1){
-        P <- P %*% trnstn_mat(l_M=x_I, N_M=Nvec_I[i], tau_M=genvec_I[i])
+        P <- P %*% trnstn_mat(l_M=x_I, r_M = r_I, N_M=Nvec_I[i], tau_M=genvec_I[i])
       }
     }
 
@@ -212,20 +151,8 @@ wvBottleneckIntegrand <- function(x_I,J_I,Nvec_I,genvec_I,r_I=1/1024,n.sample_I,
     ((1/n.sample_I)*ii + ((n.sample_I-1)/n.sample_I)*ij) ) )
 }
 
-#' dblRiemann
-#' helper function used for approximate integration
-#'
-#' @param scale_R
-#' @param nMesh
-#' @param Nvec_R
-#' @param genvec_R
-#' @param n.sample_R
-#'
-#' @return
-#' @export
-#'
-#' @examples
-dblRiemann <- function(scale_R, nMesh=100, Nvec_R, genvec_R, n.sample_R){
+
+dblRiemann <- function(scale_R, nMesh=100, Nvec_R, genvec_R, n.sample_R, unit.dist_R, alpha_R){
   # right Riemann sum approx of integral over a square region
   pnts <- seq(0,2^scale_R,length.out=nMesh+1)
   xy <-  expand.grid(pnts[-1], pnts[-1]) # take off 1st value for right riemann sum
@@ -233,25 +160,15 @@ dblRiemann <- function(scale_R, nMesh=100, Nvec_R, genvec_R, n.sample_R){
   totalVol <- 0
   for(i in 1:nrow(xy)){
     x <- as.numeric(xy[i,])
-    height <- wvBottleneckIntegrand(x, Nvec_I=Nvec_R, genvec_I=genvec_R, n.sample_I=n.sample_R, J_I=scale_R)
+    height <- wvBottleneckIntegrand(x, Nvec_I=Nvec_R, genvec_I=genvec_R, n.sample_I=n.sample_R, J_I=scale_R, r_I = unit.dist_R, alpha_I = alpha_R)
     totalVol <- totalVol + height*(2^scale_R/nMesh)^2
   }
   return(totalVol/2^scale_R)
 }
 
 
-#' wvBottleneck
-#' operates on a vector of parameters in a table
-#'
-#' @param d
-#' @param popSizeModel
-#' @param epochs
-#'
-#' @return
-#' @export
-#'
-#' @examples
-wvBottleneck <- function(d, n.pop, epochs){
+
+wvBottleneck <- function(d, n.pop, epochs, unit.dist, alpha){
   epochCum <- c(0,cumsum(epochs))
   n.sample <- d[,n.sample]
   scl <- d[,level]
@@ -268,15 +185,15 @@ wvBottleneck <- function(d, n.pop, epochs){
     N <- n.pop[1:(which(epochCum == max(epochCum[epochCum < g])))]
   }
 
-  a <- dblRiemann(scale_R=scl, nMesh=100, Nvec_R=N, genvec_R=Tau, n.sample_R=n.sample)
+  a <- dblRiemann(scale_R=scl, nMesh=100, Nvec_R=N, genvec_R=Tau, n.sample_R=n.sample, unit.dist_R = unit.dist, alpha_R = alpha)
   return(a)
 }
 
 
-wavelet_variance_general <- function(n.pop, epochs, n.sample, unit.scale, level, gen, alpha){
+wavelet_variance_general <- function(n.pop, epochs, n.sample, unit.dist, level, gen, alpha){
 
   grd1 <- data.table(expand.grid(gen=gen, n.sample=n.sample, level=level, stringsAsFactors = F))
-  grd1[, variance := wvBottleneck(.SD, n.pop=n.pop, epochs=epochs), by = seq_len(nrow(grd1))][]
+  grd1[, variance := wvBottleneck(.SD, n.pop=n.pop, epochs=epochs, unit.dist=unit.dist, alpha=alpha), by = seq_len(nrow(grd1))][]
   return(grd1)
 }
 
