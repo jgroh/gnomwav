@@ -25,8 +25,8 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   chrcov <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight)$cov[1, 2]
 
   cov_tbl <- rbind(cov_tbl,
-                   data.table(level = chromosome, cor = chrcov))
-  return(cor_tbl)
+                   data.table(level = chromosome, cov = chrcov))
+  return(cov_tbl)
 }
 
 
