@@ -5,7 +5,9 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   cols <- paste0("coefficient.", signals)
 
   # wavelet covariances
-  cov_tbl <- w[, .(cov = mean(get(cols[1])*get(cols[2]))), by = level]
+  cov_tbl_detail <- w[grepl("d", level, fixed=T), .(cov = mean(get(cols[1])*get(cols[2]))), by = level]
+  cov_tbl_smooth <- w[grepl("s", level, fixed=T), .(cov = cov(get(cols[1]), get(cols[2]))), by = level]
+  cov_tbl <- rbind(cov_tbl_detail, cov_tbl_smooth)
 
   if(is.na(chromosome)){
     return(cov_tbl)
