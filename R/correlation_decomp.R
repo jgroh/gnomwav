@@ -41,7 +41,9 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 
   # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
 
-  cor_tbl <- w[, .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
+  cor_tbl_detail <- w[grepl("d", level, fixed=T), .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
+  cor_tbl_smooth <- w[grepl("s", level, fixed=T), .(cor = cor(get(cols[1]), get(cols[2]))), by = level]
+  cor_tbl <- rbind(cor_tbl_detail, cor_tbl_smooth)
 
   if(is.na(chromosome)){
     return(cor_tbl)
