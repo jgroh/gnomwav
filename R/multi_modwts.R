@@ -22,7 +22,7 @@ wt_levels <- function(data, chromosome){
 #' @import data.table
 #'
 #'
-multi_modwt_1var <- function(u, all_cols, rm.boundary = TRUE){
+multi_modwt_1var <- function(u, all_cols, rm.boundary = F){
   a <- waveslim::modwt(x = u,wf = "haar",n.levels = floor(log2(length(u))))
 
   if(rm.boundary){
@@ -69,7 +69,7 @@ multi_modwt_1var <- function(u, all_cols, rm.boundary = TRUE){
 #'
 #' @examples tbd
 #'
-multi_modwts <- function(data, chromosome, signals, rm.boundary=TRUE){
+multi_modwts <- function(data, chromosome, signals, rm.boundary=F){
   setDT(data)
   d <- copy(data)
 

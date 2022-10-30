@@ -50,14 +50,19 @@
 #' with(wv, plot(variance.y ~ level))
 #' with(wv, plot(propvar.y ~ level))
 #'
-gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
+gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=FALSE, avg.over.chroms = TRUE){
 
+  if(rm.boundary){
+    warning("The scaling variance may be badly biased if boundary coefficients are removed. Consider comparing results to rm.boundary=F")
+  }
   m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
   if ( is.na(chromosome) ){
     wvd <- m[grepl("d", level), lapply(.SD, function(x){mean(x^2)}), .SDcols = paste0("coefficient.",signals), by = level]
+
     wvs <- m[grepl("s", level), lapply(.SD, function(x){mean(x^2) - mean(x)^2}), .SDcols = paste0("coefficient.",signals), by = level]
     wv <- rbind(wvd, wvs)
+
     varcols <- paste0("variance.", signals)
     setnames(wv, paste0("coefficient.",signals), varcols)
     return(wv)

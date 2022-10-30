@@ -1,5 +1,5 @@
 
-cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
+cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   cols <- paste0("coefficient.", signals)
@@ -33,10 +33,11 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 
 
 
-cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
+cor_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
+
   cols <- paste0("coefficient.", signals)
 
   # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
@@ -44,6 +45,8 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   cor_tbl_detail <- w[grepl("d", level, fixed=T), .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
   cor_tbl_smooth <- w[grepl("s", level, fixed=T), .(cor = cor(get(cols[1]), get(cols[2]))), by = level]
   cor_tbl <- rbind(cor_tbl_detail, cor_tbl_smooth)
+  #cor_tbl <- w[, .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
+
 
   if(is.na(chromosome)){
     return(cor_tbl)
@@ -69,7 +72,7 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 
 
 
-gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = TRUE){
+gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 
   cor_n <- cor_tbl(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   setnames(cor_n, "cor", "cor_n")
@@ -181,7 +184,7 @@ jacknife_lm <- function(dt, y, x, chromosome){
 #dt <- data
 #rm.boundary <- T
 
-wvlt_lm <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
+wvlt_lm <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
 
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
