@@ -8,12 +8,14 @@ gnom_var_decomp(
   data,
   chromosome,
   signals,
-  rm.boundary = TRUE,
+  rm.boundary = FALSE,
   avg.over.chroms = TRUE
 )
 }
 \arguments{
-\item{data}{data.frame containing columns for chromosome id and signal measurements}
+\item{data}{data.frame containing columns for chromosome id and signal measurements.
+It is assumed that the rows contain datapoints that are evenly spaced along the sequence.
+If not, you will need to interpolate your signal to a grid of evenly spaced points.}
 
 \item{chromosome}{character string, name of column containing chromosome id}
 
@@ -45,27 +47,29 @@ total variance of signal "X" contributed by the specified level of the decomposi
 Values are then adjusted to account for the total proportion of genomic-wide variance contributed
 by differences in chromosome means. Thus, this has the interpretation of the total proportion
 of genome-wide variance of "X" contributed by the specified level.
+This interpretation depends on having a high quality chromosome-level genome assembly.
+\cr
+\tab \cr
+\code{variance.X.jack} \tab Weighted jacknife estimate of the variance. At each level of the decomposition,
+only chromosomes containing coefficients at that level are used in the jacknife.
+\cr
+\tab \cr
+\code{variance.X.jack.se} \tab Standard error of the jacknife estimate.
+}
 }
 \description{
 Performs a scale-based decomposition of the variance in signal measurements along a genome
 containing multiple chromosomes. Wavelet variances are obtained using the Maximal Overlap
-Discrete Wavelet Transform with Haar wavelets. By default boundary coefficients are
-removed, which provides an unbiased estimate of the wavelet variance. A weighted average
+Discrete Wavelet Transform with Haar wavelets. By default boundary coefficients are not
+removed, but these can be ignored in the variance estimates. A weighted average
 of wavelet variances is taken over chromosmes, and chromosome-level variance is also
 calculated.
 }
 \examples{
-# Simulated example - two white-noise signals "x" and "y" measured along two chromosomes.
-# Chromosomes differ in their means by the same amount, and signal y has larger variance than x.
+# Simulated example - two white-noise signals "x" and "y" measured along two chromosomes. Signal y has larger variance than x.
+
 library(data.table)
-x <- data.table(x = c(rep(0, 30), rep(10, 70)) + rnorm(100),
-                y = c(rep(0, 30), rep(10, 70)) + rnorm(100, 0, 10),
-                group = c(rep(1, 30), rep(2, 70))
-                position.id = c(1:30, 1:70))
-plot(x[, c(x,y)])
-
-wv <- gnom_wav_var(x, chromosome = "group", signals = c("x","y"))
-with(wv, plot(variance.y ~ level))
-with(wv, plot(propvar.y ~ level))
-
+library(ggplot(2))
+d <- data.table(chr = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000), y = rnorm(4000, sd=10))
+gnom_var_decomp(d, chromosome = "chr", signals = c("x","y"))
 }

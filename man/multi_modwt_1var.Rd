@@ -4,7 +4,7 @@
 \alias{multi_modwt_1var}
 \title{modwt of a signal on one chromosome of a genome with multiple chromosomes}
 \usage{
-multi_modwt_1var(u, all_cols, rm.boundary = TRUE)
+multi_modwt_1var(u, all_cols, rm.boundary = F)
 }
 \arguments{
 \item{u}{a vector of signal measurements}

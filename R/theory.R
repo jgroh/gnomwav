@@ -46,6 +46,24 @@ wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
 }
 
 
+wav_var_F2 <- function(x, expected.crossovers.per.unit.dist,
+                          n.pop, n.sample, alpha, t.gens) {
+  u <- expected.crossovers.per.unit.dist
+  L <- abs(x[2]-x[1])
+
+  (
+    (1/n.sample)*(
+      alpha^2 + 0.5*2*alpha*(1-alpha)*(1 - 0.5*(1-exp(-2*L*u)))
+    )
+    +
+      ((n.sample-1)/n.sample)*(
+        (1/n.pop)*alpha + ((n.pop-1)/n.pop)*alpha^2
+  )
+  )
+}
+
+
+
 wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
   genlist <- list()
 
@@ -85,6 +103,52 @@ wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.dist, level, gen, 
 
   return(data.table(do.call(rbind.data.frame, genlist)))
 }
+
+
+wavelet_variance_F2 <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
+  genlist <- list()
+
+  # loop over generations
+  for(i in 1:length(gen)){
+    t.gens <- as.numeric(gen[i])
+
+    # make grid of parameters over which we evaluate the function
+    grd <- expand.grid(n.sample=n.sample, n.pop=n.pop, level=level, stringsAsFactors = F)
+    grd <- grd[grd$n.pop >= grd$n.sample,] # we only want evaluation where the sample is less than or equal to the population size
+
+    grd$gen <- rep(t.gens, nrow(grd)) # rep since we are inside the loop for a specific generation
+
+    grd$variance <- vector(length = nrow(grd)) # this is the vector we fill in the calculation
+
+    for(q in 1:nrow(grd)){
+      j <- grd[q,]$level
+      ns <- grd[q,]$n.sample
+      np <- grd[q,]$n.pop
+
+
+      part1 <- adaptIntegrate(wav_var_F2, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,0),
+                                upperLimit = c(2^(j-1),2^(j-1)))
+      part2 <- adaptIntegrate(wav_var_F2, n.sample = ns, n.pop = np, expected.crossovers.per.unit.dist=unit.dist, alpha=alpha, t.gens = t.gens, lowerLimit = c(0,2^(j-1)),
+                                upperLimit = c(2^(j-1),(2^j)))
+
+      grd$variance[q] <- ((part1$integral - part2$integral)/(2^(2*j-1)))
+    }
+
+    genlist[[i]] <- grd
+  }
+
+  return(data.table(do.call(rbind.data.frame, genlist)))
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

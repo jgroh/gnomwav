@@ -32,8 +32,13 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 }
 
 
+# use for testing
+# data <- data.table(group = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000))
+# data[, y := x + rnorm(4000, mean=0, sd=2)]
+# signals <- c("x", "y")
+# with(data, plot(y ~ x))
 
-cor_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
+gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
@@ -41,12 +46,11 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
   cols <- paste0("coefficient.", signals)
 
   # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
+  cor_tbl_detail <- w[grepl("d", level, fixed=T), .(cor_n = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
 
-  cor_tbl_detail <- w[grepl("d", level, fixed=T), .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
-  cor_tbl_smooth <- w[grepl("s", level, fixed=T), .(cor = cor(get(cols[1]), get(cols[2]))), by = level]
+  # scaling coefficient correlations do subtract off the product of means
+  cor_tbl_smooth <- w[grepl("s", level, fixed=T), .(cor_n = cor(get(cols[1]), get(cols[2]))), by = level]
   cor_tbl <- rbind(cor_tbl_detail, cor_tbl_smooth)
-  #cor_tbl <- w[, .(cor = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
-
 
   if(is.na(chromosome)){
     return(cor_tbl)
@@ -66,143 +70,230 @@ cor_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
   chrcor <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight, cor = TRUE)$cor[1, 2]
 
   cor_tbl <- rbind(cor_tbl,
-                  data.table(level = chromosome, cor = chrcor))
+                  data.table(level = chromosome, cor_n = chrcor))
+
+  # ===== weighted jacknife =====
+  # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf
+
+  # compute separately for each level, as each level has potentially different number of chromosomes
+  for(j in cor_tbl_n$level){
+
+    if(j != chromosome){
+      # which chromosomes have coefficients at this level
+      w_sub <- w[level == j]
+      n <- nrow(w_sub)
+      jchrs <- w_sub[, unique(get(chromosome))]
+
+      # number of observations for each chromosome where this level is present
+      j_weights <- w_sub[, .N, by = chromosome][, N]
+
+      # subset data to only these chromosomes
+      d_sub <- data[get(chromosome) %in% jchrs]
+
+      # how many chromosomes in our sample for this level?
+      g <- length(jchrs)
+
+    } else if (j == chromosome){
+      n <- nrow(data)
+      jchrs <- data[, unique(get(chromosome))]
+      j_weights <- data[, .N, by = chromosome][, N]
+      g <- length(jchrs)
+    }
+
+
+    if(g < 4){
+      cor_tbl[level == j, c("cor_jack", "se_jack") := .(NA, NA)]
+    } else if (g >=4){
+      # leave-1-out estimates will go in this vector
+      cor_j <- vector()
+
+      # loop over chroms and calculate estimate leaving each out in turn
+      for(i in 1:length(jchrs)){
+        # if detail coefficient
+        if(grepl('d', j, fixed=T)){
+          cor_j[i] <- w_sub[chr != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))]
+        } else if(grepl('s', j, fixed=T)){
+          cor_j[i] <- w_sub[chr != jchrs[i], cor(get(cols[1]), get(cols[2]))]
+        } else if(j == chromosome){
+
+          # chromosome-scale correlation:
+          totalmeans_j <- data[get(chromosome) != jchrs[i], lapply(.SD, mean), .SDcols = signals]
+          setnames(totalmeans_j, signals, paste0("totalmean.", signals))
+          chrmeans_j <- data[get(chromosome) != jchrs[i], lapply(.SD, mean), by = chromosome, .SDcols = signals]
+
+          # chromosome lengths as weights
+          chrlen_j <- data[get(chromosome) != jchrs[i], .(weight = .N), by = chromosome]
+          chrlen_j[, weight := weight/sum(weight)]
+          chrmeans_j <- merge(chrmeans_j, chrlen_j)
+
+          #  weighted chromosome-scale correlation
+          cor_j[i] <- cov.wt(chrmeans_j[, ..signals ], wt = chrmeans_j$weight, cor = TRUE)$cor[1, 2]
+
+        }
+      }
+
+      # compute jacknife weighted estimate of the correlation
+      cor_tbl[level==j, cor_jack := g*cor_n - sum(((n-j_weights)*cor_j)/n)]
+
+      # compute jacknife standard error (formula in link gives jacknife variance of the estimator, thus we just take square root for se)
+      h_j <- n/j_weights
+      tau_j <- h_j*cor_tbl[level==j, cor_n] - (h_j-1)*cor_j
+
+      cor_tbl[level==j, se_jack := sqrt((1/g)*sum((tau_j - cor_j)^2/(h_j-1)))][]
+    }
+  }
+
   return(cor_tbl)
 }
 
 
-
-gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
-
-  cor_n <- cor_tbl(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
-  setnames(cor_n, "cor", "cor_n")
-
-  n_tot <- data[, length(unique(get(chromosome)))]
-
-  w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
-  nlev <- w[, .SD[, .(nlev = length(unique(get(chromosome))))], by = level]
-  nlev <- rbind(nlev, data.table(level = chromosome, nlev = n_tot))
-
-  # this outputs a table of cors for all levels for each dropped chromosome
-  cortbl_drop1 <- data[, cor_tbl(data[get(chromosome) != .BY],
-                             chromosome=chromosome,
-                             signals=signals,
-                             rm.boundary = rm.boundary),
-                     by = chromosome]
-  cortbl_drop1 <- merge(cortbl_drop1, cor_n, by = "level")
-
-  # jacknife bias-corrected estimates
-  cortbl_drop1 <- merge(cortbl_drop1, nlev, all = T)
-
-  cor_jack <- cortbl_drop1[, ps := nlev*(cor_n) - (nlev-1)*cor][, .(cor_jack = mean(ps)), by = level]
-
-  # jacknife standard errors
-  cor_se_jack <- cortbl_drop1[, .(se = ifelse(nlev[1] != 1, sqrt(var(cor)/nlev[1]), as.double(NA))), by = level]
-
-  output <- merge(cor_jack, cor_se_jack)
-  output[, c("lower95ci", "upper95ci") := .(cor_jack - 1.96*se, cor_jack + 1.96*se)][, se := NULL][]
-  output <- merge(cor_n, output, by = "level")
-
-  return(output)
-}
+# make sample data set with 20 chroms, where z is correlated with both x and y separately
+# chrlens <- sample(x = c(100, 200, 300, 400, 500), size = 20, replace=T)
+# chr_id <- NULL
+# for(i in 1:20){
+#   chr_id <- c(chr_id, rep(i, chrlens[i]))
+# }
+# data <- data.table(chrom = chr_id, x = rnorm(length(chr_id)), y = rnorm(length(chr_id)))
+# data[, z := 4*x - 2*y + rnorm(length(chr_id), sd = 5)]
+# chromosome <- 'chrom'
+# rm.boundary <- F
+# xvars <- c("x", "y")
+# yvar <- "z"
 
 
+#' R squared from linear model of wavelet coefficients
+#'
+#' Estimates r squared from a linear model of wavelet coefficients.
+#' If separate chromosomes are present, also estimates r squared from linear model of chromosome means,
+#' weighting by chromosome length. Weighted block jacknife with chromosomes as blocks
+#' is performed to return bias-corrected estimates and standard errors of the bias-corrected estimate.
+#'
+#' @param data data.frame containing columns for chromosome id and signal measurements.
+#' It is assumed that the rows contain datapoints that are evenly spaced along the sequence.
+#' If not, you will need to interpolate your signal to a grid of evenly spaced points.
+#' @param yvar character string, the response variable in the linear model
+#' @param xvars character vector, the predictor variables in the linear model. Assumed no interaction
+#' @param chromosome character string, the name of the column containing chromosome id
+#' @param rm.boundary logical, whether to remove boundary coefficients (default FALSE)
+#'
+#' @return if avg.over.chroms = TRUE, returns a data.table containing:\tabular{ll}{
+#' \code{level} \tab The level of the wavelet decomposition. Values "dX"
+#' correspond to wavelet coefficients, and corresponding variances are associated
+#'  with changes in localized average signal values over scale 2^(X-1). Values "sX" correspond to
+#'  scaling coefficients, and corresponding variances are associated with localized averages
+#'  on a scale of 2^X.  \cr
+#'  \tab \cr
+#'  \code{rsqrd_n} \tab R squared from a linear model using the specified formula.
+#'  For wavelet coefficients, the regression is forced through the origin.
+#'  For scaling coefficients and chromosome means, an intercept is fit.
+#'  For the chromosome level, the regression of means is weighted by chromosome length.
+#'  \cr
+#'  \tab \cr
+#'  \code{rsqrd_jack} \tab The bias-corrected estimate of r squared from a weighted block jacknife with chromosomes as blocks.
+#'  Not reported if the given level contains < 4 blocks.
+#'   \cr
+#'   \tab \cr
+#'  \code{rsqrd_jack_se} \tab Standard error of the jacknife estimate.
+#' }
+#'
+#'
+#' @export
+#'
+#' @examples
+#' # sample data with 20 chroms, where z is correlated with both x and y separately
+#'
+#' chrlens <- sample(x = c(100, 200, 300, 400, 500), size = 20, replace=T)
+#' chr_id <- NULL
+#' for(i in 1:20){
+#'   chr_id <- c(chr_id, rep(i, chrlens[i]))
+#' }
+#' data <- data.table(chrom = chr_id, x = rnorm(length(chr_id)), y = rnorm(length(chr_id)))
+#' data[, z := 4*x - 2*y + rnorm(length(chr_id), sd = 5)]
+#'
+#' modwt_lm_rsqrd(data=data, yvar = "z", xvars = c("x", "y"), chromosome = "chrom")
+#'
+modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
 
-jacknife_lm <- function(dt, y, x, chromosome){
-
-  f <- as.formula(paste(y, paste(x, collapse=" + "), sep=" ~ "))
-
-  # model using all data
-  z <- summary(lm(f, data = dt))
-
-  # linear model coeffs
-  lm_coeffs <- z$coefficients[-1,1]
-
-  # estimate of r squared
-  rsqrd_n <- z$r.squared
-  names(rsqrd_n) <- "rsqrd"
-
-  estimates <- unlist(c(lm_coeffs, rsqrd_n) )
-
-  n <- length(dt[, unique(get(chromosome))])
-
-  # don't construct jacknife CIs if fewer than X # of chromosome
-  if ( n < 4){
-    nms <- names(estimates)
-    output <- data.table(estimates)
-    output[, variable := as.character(nms)]
-    output[, jn_se := as.double(NA)]
-    output[, jn_bc_estimate := as.double(NA)][]
-    setnames(output, "estimates", "direct_estimate")
-    setcolorder(output, c("variable", "direct_estimate", "jn_bc_estimate", "jn_se"))
-
-  } else { # construct jacknife CIs for rsquared and slopes
-
-    jack_estimates <- data.table()
-
-    # note: include some check here to make sure there are sufficiently many chromosomes
-    for(i in dt[, unique(get(chromosome))]){
-
-      z <- summary(lm(f, data = dt[get(chromosome) != i,]))
-
-      jack_estimates <- rbind(jack_estimates, c(as.list(z$coefficients[-1, 1]),
-                                      rsqrd = z$r.squared),
-                              fill=T)
-    }
-
-
-    pseudovals <- jack_estimates[, lapply(seq_along(names(.SD)),
-                            function(i, y, nm){ n*estimates[nm[i]] - (n-1)*y[[i]]  },
-                            y = .SD, nm = names(.SD)),
-                   .SDcols = c(x, "rsqrd")]
-    setnames(pseudovals, new = c(x, "rsqrd"))
-
-    # bias-corrected estimates: mean of pseudovalues
-    jack_bc_estimates <- pseudovals[, lapply(.SD, mean)]
-
-    output <- melt(jack_bc_estimates, measure.vars = names(jack_bc_estimates), value.name = "jn_bc_estimate")
-    output[, variable := as.character(variable)]
-    # jacknife standard errors
-    jack_se <- pseudovals[, lapply(.SD, function(x){ sqrt(var(x)/n) } )]
-    output <- merge(output, melt(jack_se, measure.vars = names(jack_se), value.name = "jn_se"))
-
-    output[, direct_estimate := estimates][]
-    setcolorder(output, c("variable", "direct_estimate", "jn_bc_estimate", "jn_se"))
-
-  }
-
-  return(output)
-
-}
-
-
-#data <- data.table(x = rnorm(100), y = rnorm(100), z = rnorm(100), chr = rep(c(1,2,3,4,5), 20))
-#setkey(data, chr)
-#xvars <- c("x", "y")
-#yvar <- "z"
-#chromosome <- "chr"
-#dt <- data
-#rm.boundary <- T
-
-wvlt_lm <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
-
+  # ===== lm of wavelet coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
-  # calculate r squared and 95% confidence intervals across scales
-  rsqrd_tbl <- w[, jacknife_lm(dt = .SD,
-                                  chromosome = chromosome,
-                                  x = paste0("coefficient.",xvars),
-                                  y = paste0("coefficient.",yvar)),
-                 by = level]
-  rsqrd_tbl[, variable := gsub("coefficient.","", variable)]
+  # formula for lm, intercept forced through zero
+  f_detail <- as.formula(paste(paste0('coefficient.',yvar), paste(c('0',paste0('coefficient.',xvars)), collapse=" + "), sep=" ~ "))
+  f_smooth <- as.formula(paste(paste0('coefficient.',yvar), paste(paste0('coefficient.',xvars), collapse=" + "), sep=" ~ "))
+  f_chr <- as.formula(paste(yvar, paste(xvars, collapse=" + "), sep =" ~ "))
 
-  # calculate r squared and 95% for chromosome-level
-  chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = c(xvars,yvar)]
+  rsqrd_d <- w[grepl('d',level,fixed=T), .(rsqrd_n = summary(lm(f_detail, data = .SD))$r.squared), by = level]
+  rsqrd_s <- w[grepl('s',level,fixed=T), .(rsqrd_n = summary(lm(f_smooth, data = .SD))$r.squared), by = level]
+  rsqrd <- rbind(rsqrd_d, rsqrd_s)
 
-  rsqrd_chr <- cbind(level = chromosome,
-                           chrmeans[, jacknife_lm(.SD,
-                                                     chromosome = chromosome,
-                                                     x = xvars,
-                                                     y = yvar)])
-  return(rbind(rsqrd_tbl, rsqrd_chr))
+  if(is.na(chromosome)){
+    return(rsqrd[])
+  }
+
+  # rsquared from weighted lm of chromosome means
+  chrmeans <- data[, lapply(.SD, mean), .SDcols = c(xvars, yvar), by = chromosome]
+  chr_weights <- data[, .(weight = .N), by = chromosome]
+  chrmeans <- merge(chrmeans, chr_weights)
+  rsqrd_chr <- summary(lm(f_chr, weights = chrmeans$weight, data = chrmeans))$r.squared
+  rsqrd <- rbind(rsqrd, data.table(level = chromosome, rsqrd_n = rsqrd_chr))
+
+  # weighted jacknife for wavelet coefficients
+  for(j in rsqrd$level){
+    if(j != chromosome){
+      # which chromosomes have coefficients at this level
+      w_sub <- w[level == j]
+      n <- nrow(w_sub)
+      jchrs <- w_sub[, unique(get(chromosome))]
+
+      # number of observations for each chromosome where this level is present
+      j_weights <- w_sub[, .N, by = chromosome][, N]
+
+      # subset data to only these chromosomes
+      d_sub <- data[get(chromosome) %in% jchrs]
+
+      # how many chromosomes in our sample for this level?
+      g <- length(jchrs)
+
+    } else if (j == chromosome){
+      n <- nrow(data)
+      jchrs <- data[, unique(get(chromosome))]
+      j_weights <- data[, .N, by = chromosome][, N]
+      g <- length(jchrs)
+    }
+
+    if(g < 4){
+      rsqrd[level == j, c("rsqrd_jack", "rsqrd_jack_se") := .(NA, NA)]
+    } else if (g >=4){
+
+      # leave-1-out estimates will go in this vector
+      rsqrd_j <- vector()
+
+      # loop over chroms and calculate estimate leaving each out in turn
+      for(i in 1:length(jchrs)){
+
+        # if detail coefficient
+        if(j != chromosome & grepl('d', j, fixed=T)){
+          rsqrd_j[i] <- w_sub[get(chromosome) != jchrs[i], summary(lm(f_detail, data = .SD))$r.squared]
+        } else if(j != chromosome & grepl('s', j, fixed=T)){
+          rsqrd_j[i] <- w_sub[get(chromosome) != jchrs[i], summary(lm(f_smooth, data = .SD))$r.squared]
+        } else if(j == chromosome){
+
+          # rsquared from weighted lm of chromosome means
+          chrmeans_j <- data[get(chromosome) != jchrs[i], lapply(.SD, mean), .SDcols = c(xvars, yvar), by = chromosome]
+          chr_weights_j <- data[get(chromosome) != jchrs[i], .(weight = .N), by = chromosome]
+          chrmeans_j <- merge(chrmeans_j, chr_weights_j)
+          rsqrd_j[i] <- summary(lm(f_chr, weights = chrmeans_j$weight, data = chrmeans_j))$r.squared
+        }
+      }
+
+      # compute jacknife weighted estimate of the correlation
+      rsqrd[level==j, rsqrd_jack := g*rsqrd_n - sum(((n-j_weights)*rsqrd_j)/n)][]
+
+      # compute jacknife standard error (formula in link gives jacknife variance of the estimator, thus we just take square root for se)
+      h_j <- n/j_weights
+      tau_j <- h_j*rsqrd[level==j, rsqrd_n] - (h_j-1)*rsqrd_j
+      rsqrd[level==j, rsqrd_jack_se := sqrt((1/g)*sum((tau_j - rsqrd_j)^2/(h_j-1)))][]
+    }
+  }
+  return(rsqrd[])
 }
