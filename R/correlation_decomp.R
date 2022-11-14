@@ -76,7 +76,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
   # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf
 
   # compute separately for each level, as each level has potentially different number of chromosomes
-  for(j in cor_tbl_n$level){
+  for(j in cor_tbl$level){
 
     if(j != chromosome){
       # which chromosomes have coefficients at this level
@@ -102,7 +102,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 
 
     if(g < 4){
-      cor_tbl[level == j, c("cor_jack", "se_jack") := .(NA, NA)]
+      cor_tbl[level == j, c("cor_jack", "cor_jack_se") := .(NA, NA)]
     } else if (g >=4){
       # leave-1-out estimates will go in this vector
       cor_j <- vector()
@@ -139,7 +139,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
       h_j <- n/j_weights
       tau_j <- h_j*cor_tbl[level==j, cor_n] - (h_j-1)*cor_j
 
-      cor_tbl[level==j, se_jack := sqrt((1/g)*sum((tau_j - cor_j)^2/(h_j-1)))][]
+      cor_tbl[level==j, cor_jack_se := sqrt((1/g)*sum((tau_j - cor_j)^2/(h_j-1)))][]
     }
   }
 
