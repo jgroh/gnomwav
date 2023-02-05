@@ -111,9 +111,9 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
       for(i in 1:length(jchrs)){
         # if detail coefficient
         if(grepl('d', j, fixed=T)){
-          cor_j[i] <- w_sub[chr != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))]
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))]
         } else if(grepl('s', j, fixed=T)){
-          cor_j[i] <- w_sub[chr != jchrs[i], cor(get(cols[1]), get(cols[2]))]
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]))]
         } else if(j == chromosome){
 
           # chromosome-scale correlation:
