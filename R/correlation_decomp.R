@@ -38,6 +38,34 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 # signals <- c("x", "y"); chromosome <- "group"; rm.boundary <- F
 # with(data, plot(y ~ x))
 
+#' Correlation decomposition of two signals measured along multiple chromosomes
+#'
+#' @param data data.table containing columns for variables to be correlated and a column with chromosome id if applicable.
+#' data.table should be keyed by chromosome and then position. It is assumed that all positions in the data.table are equally spaced along the chromosome.
+#' If not, results will not be valid. To get measurements at equally-spaced locations along chromosomes, you can interpolate your signals using the R function \code{approx()}.
+#' @param chromosome character string, name of column containing chromosome id. To calculate results per chromosome, use chromosome = NA, and run function separately per chromosome.
+#' @param signals character vector, names of columns to be correlated
+#' @param rm.boundary logical, whether to remove boundary coefficients in the calculations. Default is FALSE.
+#'
+#' @return data.table containing:\tabular{ll}{
+#' \code{level} \tab The level of the wavelet decomposition. Levels "d?" correspond to wavelet coefficients.
+#'  Levels "s?" correspond to scaling coefficients. Note 'pearson' correlations for wavelet coefficients don't subtract off the product of means.
+#'  Otherwise 'pearson' correlations for scaling coefficients or at the chromosome-level, and all 'spearman' correlations are calculated in the usual way.
+#'  Chromosome-level correlations are weighted by chromosome length.\cr
+#'  \tab \cr
+#'  \code{cor_n} \tab Correlation computed at the given level \cr
+#'  \tab \cr
+#'  \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
+#'  \tab \cr
+#'  \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
+#'  \tab \cr
+#'  \code{method} \tab 'pearson' or 'spearman' correlations of wavelet or scaling coefficients. Note that the exact decomposition of the total correlation as described in manuscript is only valid using the 'pearson' wavelet and scaling correlations \cr
+#' }
+#'
+#' @export
+#' @import wCorr
+#'
+#' @examples
 gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 
   # get modwt coefficients
@@ -119,11 +147,11 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
     }
 
 
-    if(g < 4){
+    if(g < 6){
       cor_tbl[level == j & method == 'pearson', c("cor_jack", "cor_jack_se") := .(NA, NA)]
       cor_tbl[level == j & method == 'spearman', c("cor_jack", "cor_jack_se") := .(NA, NA)]
 
-      } else if (g >=4){
+      } else if (g >= 6){
       # leave-1-out estimates will go in this list, first element pearson cors
       # 2nd element spearman cors
       cor_j <- list(c(), c())

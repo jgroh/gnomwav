@@ -14,7 +14,7 @@ gnom_var_decomp(
 }
 \arguments{
 \item{data}{data.frame containing columns for chromosome id and signal measurements.
-It is assumed that the rows contain datapoints that are evenly spaced along the sequence.
+It is assumed that successive rows contain datapoints that are evenly spaced along the sequence.
 If not, you will need to interpolate your signal to a grid of evenly spaced points.}
 
 \item{chromosome}{character string, name of column containing chromosome id}
@@ -24,8 +24,11 @@ variance decomposition is desired}
 
 \item{rm.boundary}{logical, whether to remove boundary coefficients}
 
-\item{avg.over.chroms}{logical, if FALSE, returns variance decomposition per chromosome
-if true, variances are averaged over chromosomes}
+\item{avg.over.chroms}{logical, if FALSE, returns variance magnitudes per chromosome.
+if TRUE, variance magnitudes are averaged over chromosomes,
+along with 95\% jacknife intervals from weighted block jacknife treating chromosomes as blocks.
+Proportion of total genome-wide variance is also given.
+Due to chromosomes having different lengths, error bars are not calculated for proportions of variance.}
 }
 \value{
 if avg.over.chroms = TRUE, returns a data.table containing:\tabular{ll}{
@@ -47,7 +50,6 @@ total variance of signal "X" contributed by the specified level of the decomposi
 Values are then adjusted to account for the total proportion of genomic-wide variance contributed
 by differences in chromosome means. Thus, this has the interpretation of the total proportion
 of genome-wide variance of "X" contributed by the specified level.
-This interpretation depends on having a high quality chromosome-level genome assembly.
 \cr
 \tab \cr
 \code{variance.X.jack} \tab Weighted jacknife estimate of the variance. At each level of the decomposition,
@@ -62,7 +64,7 @@ Performs a scale-based decomposition of the variance in signal measurements alon
 containing multiple chromosomes. Wavelet variances are obtained using the Maximal Overlap
 Discrete Wavelet Transform with Haar wavelets. By default boundary coefficients are not
 removed, but these can be ignored in the variance estimates. A weighted average
-of wavelet variances is taken over chromosmes, and chromosome-level variance is also
+of wavelet variances is taken over chromosomes, and chromosome-level variance is also
 calculated.
 }
 \examples{
