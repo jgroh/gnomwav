@@ -1,5 +1,6 @@
 # helper function to return vector of wavelet levels as named by waveslim
 wt_levels <- function(data, chromosome){
+ n_obs <- NULL # due to NSE notes in R CMD check
 
   # define maximum level of decomposition based on longest chromosome
   maxLev <- data[, .(n_obs = .N), by = chromosome][, max(floor(log2(n_obs)))]
@@ -8,21 +9,9 @@ wt_levels <- function(data, chromosome){
   return(c(paste0("d", 1:maxLev), paste0("s", maxLev)))
 }
 
-#' modwt of a signal on one chromosome of a genome with multiple chromosomes
-#'
-#' Helper function for dijoint_modwts below.
-#' Wrapper for modwt function from waveslim. Sets coefficients to NA for levels
-#' that are not present on the focal chromosome but that are present on others.
-#'
-#' @param u a vector of signal measurements
-#'
-#' @return a data.table with 2 columns, level of the decomposition,
-#' coefficient values
-#'
-#' @import data.table
-#'
-#'
-multi_modwt_1var <- function(u, all_cols, rm.boundary = F){
+
+# helper function, basically just a wrapper for waveslim::modwt
+multi_modwt_1var <- function(u, rm.boundary = FALSE){
   a <- waveslim::modwt(x = u,wf = "haar",n.levels = floor(log2(length(u))))
 
   if(rm.boundary){
@@ -52,6 +41,8 @@ multi_modwt_1var <- function(u, all_cols, rm.boundary = F){
 #' @param data a data.frame or data.table containing a column for chromosome ID and column(s) with signal values.
 #' @param chromosome character string, the name of the column with chromosome ID
 #' @param signals character vector, names of the columns with signal values
+#' @param rm.boundary logical, whether to remove boundary coefficients
+
 #'
 #' @return data.table containing:\tabular{ll}{
 #' \code{level} \tab The level of the wavelet decomposition. Levels "d?" correspond to wavelet coefficients.
@@ -65,23 +56,24 @@ multi_modwt_1var <- function(u, all_cols, rm.boundary = F){
 #' }
 #'
 #' @import data.table
+#' @importFrom stats na.omit
 #' @export
 #'
-#' @examples tbd
 #'
-multi_modwts <- function(data, chromosome, signals, rm.boundary=F){
+multi_modwts <- function(data, chromosome, signals, rm.boundary=FALSE){
+  position.id <- NULL
   setDT(data)
   d <- copy(data)
 
   if (is.na(chromosome)){
-    d2 <- d[, multi_modwt_1var(u = get(signals[1]), all_cols = allcols, rm.boundary = rm.boundary)]
+    d2 <- d[, multi_modwt_1var(u = get(signals[1]), rm.boundary = rm.boundary)]
     d2[, position.id := seq_len(.N), by = "level"]
 
     setnames(d2, "coefficient", paste0("coefficient.", signals[1]))
 
     if (length(signals) > 1) {
       for(i in 2:length(signals)){
-        temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary)]
+        temp <- d[, multi_modwt_1var(get(signals[i]), rm.boundary = rm.boundary)]
         temp[, position.id := seq_len(.N), by = "level"]
         setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
         d2 <- merge(d2, temp, by = c("level", "position.id"))
@@ -92,14 +84,14 @@ multi_modwts <- function(data, chromosome, signals, rm.boundary=F){
     allcols <- wt_levels(d, chromosome)
 
     # modwt on first signal
-    d2 <- d[, multi_modwt_1var(u = get(signals[1]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
+    d2 <- d[, multi_modwt_1var(u = get(signals[1]), rm.boundary = rm.boundary), by = chromosome]
     d2[, position.id := seq_len(.N), by = c(chromosome, "level")]
     setnames(d2, "coefficient", paste0("coefficient.", signals[1]))
 
     # modwt for other signals and combine result
     if (length(signals) > 1) {
       for(i in 2:length(signals)){
-        temp <- d[, multi_modwt_1var(get(signals[i]), all_cols = allcols, rm.boundary = rm.boundary), by = chromosome]
+        temp <- d[, multi_modwt_1var(get(signals[i]), rm.boundary = rm.boundary), by = chromosome]
         temp[, position.id := seq_len(.N), by = c(chromosome, "level")]
         setnames(temp, "coefficient", paste0("coefficient.", signals[i]))
         d2 <- merge(d2, temp, by = c(chromosome, "level", "position.id"))

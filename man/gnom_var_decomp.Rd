@@ -71,7 +71,6 @@ calculated.
 # Simulated example - two white-noise signals "x" and "y" measured along two chromosomes. Signal y has larger variance than x.
 
 library(data.table)
-library(ggplot(2))
 d <- data.table(chr = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000), y = rnorm(4000, sd=10))
 gnom_var_decomp(d, chromosome = "chr", signals = c("x","y"))
 }

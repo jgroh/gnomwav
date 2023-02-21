@@ -13,6 +13,6 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
     data.table,
+    cubature,
     waveslim,
-    magrittr,
     wCorr

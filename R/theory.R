@@ -63,8 +63,30 @@ wav_var_F2 <- function(x, expected.crossovers.per.unit.dist,
 }
 
 
+#' Calculate expected wavelet variance of ancestry state under neutral admixture pulse model with constant population size
+#'
+#' @param n.pop Numeric vector. Total number of chromosomes in the population. e.g. should be 2N for a diploid population
+#' @param n.sample numeric. returns wavelet variance for mean ancestry in a sample of this size. \code{n.sample} of 1
+#' gives expectation for a single chromosome
+#' @param unit.dist Unit distance, i.e. spacing between adjacent hypothetical loci, in Morgans
+#' @param level Integer vector giving levels at which expectation will be returned.
+#' Level 1 would correspond to expected variance associated with changes occurring over the unit distance.
+#' @param gen Integer vector of generations for which expectation should be returned.
+#' Note that generations correspond to number of generations of recombination since the admixture pulse,
+#' i.e. number of meioses starting with meiosis in F1s.
+#' @param alpha numeric. the admixture proportion.
+#'
+#' @return a data.table with columns corresponding to the arguments given and column \code{variance}
+#' giving the expectations.
+#'
+#' @import data.table
+#' @import cubature
+#' @export
+#'
+#' @examples
+#' wavelet_variance_equilibrium(n.pop = 2000, n.sample=1, unit.dist = 2^-10, level = 1:10, gen = c(100,1000), alpha = 0.5)
 
-wavelet_variance_equilbrium <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
+wavelet_variance_equilibrium <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
   genlist <- list()
 
   # loop over generations
@@ -233,6 +255,8 @@ dblRiemann <- function(scale_R, nMesh=100, Nvec_R, genvec_R, n.sample_R, unit.di
 
 
 wvBottleneck <- function(d, n.pop, epochs, unit.dist, alpha){
+  level <- gen <- NULL # due to NSE notes in R CMD check
+
   epochCum <- c(0,cumsum(epochs))
   n.sample <- d[,n.sample]
   scl <- d[,level]
@@ -255,6 +279,7 @@ wvBottleneck <- function(d, n.pop, epochs, unit.dist, alpha){
 
 
 wavelet_variance_general <- function(n.pop, epochs, n.sample, unit.dist, level, gen, alpha){
+  variance <- NULL # due to NSE notes in R CMD check
 
   grd1 <- data.table(expand.grid(gen=gen, n.sample=n.sample, level=level, stringsAsFactors = F))
   grd1[, variance := wvBottleneck(.SD, n.pop=n.pop, epochs=epochs, unit.dist=unit.dist, alpha=alpha), by = seq_len(nrow(grd1))][]

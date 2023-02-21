@@ -5,7 +5,7 @@
 \title{Maximal Overlap Discrete Wavelet Transform of signals measured along
 a set of disjoint sequences.}
 \usage{
-multi_modwts(data, chromosome, signals, rm.boundary = F)
+multi_modwts(data, chromosome, signals, rm.boundary = FALSE)
 }
 \arguments{
 \item{data}{a data.frame or data.table containing a column for chromosome ID and column(s) with signal values.}
@@ -13,6 +13,8 @@ multi_modwts(data, chromosome, signals, rm.boundary = F)
 \item{chromosome}{character string, the name of the column with chromosome ID}
 
 \item{signals}{character vector, names of the columns with signal values}
+
+\item{rm.boundary}{logical, whether to remove boundary coefficients}
 }
 \value{
 data.table containing:\tabular{ll}{
@@ -32,8 +34,4 @@ Returns a table of coefficients from the Maximal Overlap Discrete Wavelet Transf
 performed on multiple signal measurements (i.e. ancestry state and recombination rate)
 along multiple disjoint sequences (i.e. chromosomes). By default the 'brick wall' boundary coefficient
 is applied, meaning that boundary coefficients are removed from the output.
-}
-\examples{
-tbd
-
 }

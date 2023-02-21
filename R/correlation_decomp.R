@@ -1,5 +1,12 @@
+`.` <- list # alias to avoid NSE notes in R CMD check
 
+
+
+
+#' @importFrom stats cov.wt
+#'
 cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
+  level <- cov <- weight <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
   cols <- paste0("coefficient.", signals)
@@ -24,7 +31,7 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
   chrmeans <- merge(chrmeans,chrlen)
 
   # 4. weighted chromosome-scale covariance
-  chrcov <- cov.wt(chrmeans[, ..signals ], wt = chrmeans$weight)$cov[1, 2]
+  chrcov <- cov.wt(chrmeans[, signals, with = FALSE], wt = chrmeans$weight)$cov[1, 2]
 
   cov_tbl <- rbind(cov_tbl,
                    data.table(level = chromosome, cov = chrcov))
@@ -64,10 +71,22 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 #'
 #' @export
 #' @import wCorr
+#' @import data.table
+#' @importFrom stats cor
 #'
 #' @examples
-gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
+#' # Toy example - two white-noise signals "x" and "y" measured
+#' # along six 'chromosomes'.
+#'
+#' library(data.table)
+#' data <- data.table(group = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000))
+#' data[, y := x + rnorm(4000, mean=0, sd=2)]
+#' signals <- c("x", "y"); chromosome <- "group"
+#' gnom_cor_decomp(data, signals=signals, chromosome = chromosome)
+#'
 
+gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
+  level <- weight <- N <- method <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
@@ -260,13 +279,16 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 #'  \code{rsqrd_jack_se} \tab Standard error of the jacknife estimate.
 #' }
 #'
-#'
+#' @importFrom stats as.formula
+#' @importFrom stats lm
 #' @export
 #'
 #' @examples
 #' # sample data with 20 chroms, where z is correlated with both x and y separately
 #'
-#' chrlens <- sample(x = c(100, 200, 300, 400, 500), size = 20, replace=T)
+#' library(data.table)
+#'
+#' chrlens <- sample(x = c(100, 200, 300, 400, 500), size = 20, replace=TRUE)
 #' chr_id <- NULL
 #' for(i in 1:20){
 #'   chr_id <- c(chr_id, rep(i, chrlens[i]))
@@ -277,7 +299,7 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 #' modwt_lm_rsqrd(data=data, yvar = "z", xvars = c("x", "y"), chromosome = "chrom")
 #'
 modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
-
+  level <- N <- rsqrd_n <- rsqrd_jack <- rsqrd_jack_se <- NULL # due to NSE notes in R CMD check
   # ===== lm of wavelet coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
