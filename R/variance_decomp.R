@@ -224,12 +224,12 @@ gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=FALSE, avg.ov
     }
 
     # don't do jacknife if too few chroms
-    if(g < 4){
+    if(g < 6){
       for(vcol in varcols){
         allvardecomp[level==j, paste0(vcol,".jack") := NA][]
         allvardecomp[level==j, paste0(vcol,".jack.se") := NA][]
       }
-    } else if (g >= 4){
+    } else if (g >= 6){
 
       # leave-1-out estimates will go in here
       var_j <- data.table(jchr = jchrs, level = j)
