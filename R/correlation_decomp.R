@@ -50,8 +50,12 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 #' @param data data.table containing columns for variables to be correlated and a column with chromosome id if applicable.
 #' data.table should be keyed by chromosome and then position. It is assumed that all positions in the data.table are equally spaced along the chromosome.
 #' If not, results will not be valid. To get measurements at equally-spaced locations along chromosomes, you can interpolate your signals using the R function \code{approx()}.
-#' @param chromosome character string, name of column containing chromosome id. To calculate results per chromosome, use chromosome = NA, and run function separately per chromosome.
 #' @param signals character vector, names of columns to be correlated
+#' @param chromosome character string, name of column containing chromosome id. To calculate results per chromosome, use chromosome = NA, and run function separately per chromosome.
+#' @param method one of 'pearson' or 'spearman', indicating the type of correlation to calculate from wavelet coefficients. Note 'pearson' wavelet correlations for detail coefficients
+#' do not strictly conform to the definition of the Pearson correlation as the product of means is not subtracted, but this gives an unbiased estimate of the wavelet correlation.
+#' For scaling coefficients, the usual Pearson formula is used. Note also that the exact decomposition of the total correlation as described in manuscript is only valid using the
+#'  'pearson' wavelet and scaling correlations. \cr
 #' @param rm.boundary logical, whether to remove boundary coefficients in the calculations. Default is FALSE.
 #'
 #' @return data.table containing:\tabular{ll}{
@@ -65,8 +69,6 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 #'  \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
 #'  \tab \cr
 #'  \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
-#'  \tab \cr
-#'  \code{method} \tab 'pearson' or 'spearman' correlations of wavelet or scaling coefficients. Note that the exact decomposition of the total correlation as described in manuscript is only valid using the 'pearson' wavelet and scaling correlations \cr
 #' }
 #'
 #' @export
@@ -85,30 +87,27 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 #' gnom_cor_decomp(data, signals=signals, chromosome = chromosome)
 #'
 
-gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
-  level <- weight <- N <- method <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
+gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.boundary = FALSE){
+  level <- weight <- N <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
   cols <- paste0("coefficient.", signals)
 
-  # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
-  cor_tbl_detail_prs <- w[grepl("d", level, fixed=T),
-                      .(cor_n = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2))),
-                        method = "pearson"), by = level]
+  if (method == 'pearson') {
+    # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
+    cor_tbl_detail_prs <- w[grepl("d", level, fixed=T),
+                            .(cor_n = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
 
-  # scaling coefficient correlations do subtract off the product of means
-  cor_tbl_smooth_prs <- w[grepl("s", level, fixed=T),
-                      .(cor_n = cor(get(cols[1]), get(cols[2])),
-                        method = "pearson"), by = level]
+    # scaling coefficient correlations do subtract off the product of means
+    cor_tbl_smooth_prs <- w[grepl("s", level, fixed=T),
+                            .(cor_n = cor(get(cols[1]), get(cols[2]))), by = level]
+    cor_tbl <- rbind(cor_tbl_detail_prs, cor_tbl_smooth_prs)
 
-  # combine with spearman cor of wavelet coefficients
-  cor_tbl <- rbindlist(list(cor_tbl_detail_prs,
-                            cor_tbl_smooth_prs,
-                            w[,
-                                  .(cor_n = cor(get(cols[1]), get(cols[2]),
-                                                method = 'spearman'),
-                                      method = 'spearman'), by = level]))
+  } else if(method == 'spearman'){
+    cor_tbl <- w[, .(cor_n = cor(get(cols[1]), get(cols[2]))), by = level]
+  }
+
 
   if(is.na(chromosome)){
     return(cor_tbl)
@@ -126,21 +125,25 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
 
   # 4. weighted chromosome-scale correlation
 
-  chrcor <- data.table(cor_n = c(weightedCorr(x = chrmeans[, get(signals[1])],
-                                  y = chrmeans[, get(signals[2])],
-                                  weights = chrmeans$weight, method = "Pearson"),
-                       weightedCorr(x = chrmeans[, get(signals[1])],
-                                    y = chrmeans[, get(signals[2])],
-                                    weights = chrmeans$weight, method = "Spearman")),
-             level = chromosome,
-             method = c("pearson", "spearman"))
+  if(method == 'pearson'){
+    chrcor <- data.table(cor_n = weightedCorr(x = chrmeans[, get(signals[1])],
+                                                y = chrmeans[, get(signals[2])],
+                                                weights = chrmeans$weight, method = "Pearson"),
+                         level = chromosome)
+
+  } else if (method == 'spearman'){
+    chrcor <- data.table(cor_n = weightedCorr(x = chrmeans[, get(signals[1])],
+                                              y = chrmeans[, get(signals[2])],
+                                              weights = chrmeans$weight, method = "Spearman"),
+                         level = chromosome)
+  }
 
   cor_tbl <- rbind(cor_tbl, chrcor)
 
   # ===== weighted jacknife =====
   # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf
 
-  # compute separately for each level, as each level has potentially different number of chromosomes
+  # compute separately for each level, as each level has potentially different number of chromosomes available
   for(j in unique(cor_tbl$level)){
 
     if(j != chromosome){
@@ -165,15 +168,14 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
       g <- length(jchrs)
     }
 
-
+    # don't perform jacknife if sample size is at less than 6
     if(g < 6){
-      cor_tbl[level == j & method == 'pearson', c("cor_jack", "cor_jack_se") := .(NA, NA)]
-      cor_tbl[level == j & method == 'spearman', c("cor_jack", "cor_jack_se") := .(NA, NA)]
+      cor_tbl[level == j, c("cor_jack", "cor_jack_se") := .(NA, NA)]
 
       } else if (g >= 6){
       # leave-1-out estimates will go in this list, first element pearson cors
       # 2nd element spearman cors
-      cor_j <- list(c(), c())
+      cor_j <- c()
 
       # loop over chroms and calculate estimate leaving each out in turn
       for(i in 1:length(jchrs)){
@@ -181,13 +183,11 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
         # if detail coefficient
         if(grepl('d', j, fixed=T)){
 
-          cor_j[[1]] <- c(cor_j[[1]], w_sub[get(chromosome) != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))])
-          cor_j[[2]] <- c(cor_j[[2]], w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]), method = "spearman")])
-
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))]
           # smooth coefficient
         } else if(grepl('s', j, fixed=T)){
-          cor_j[[1]] <- c(cor_j[[1]], w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]))])
-          cor_j[[2]] <- c(cor_j[[2]], w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]), method = "spearman")])
+
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]))]
 
           } else if(j == chromosome){
 
@@ -202,26 +202,20 @@ gnom_cor_decomp <- function(data, chromosome, signals, rm.boundary = FALSE){
           chrmeans_j <- merge(chrmeans_j, chrlen_j)
 
           #  weighted chromosome-scale correlation
-          cor_j[[1]] <- c(cor_j[[1]], weightedCorr(x = chrmeans_j[, get(signals[1])],
+          cor_j[i] <- weightedCorr(x = chrmeans_j[, get(signals[1])],
                                       y = chrmeans_j[, get(signals[2])],
-                                      weights = chrmeans_j$weight, method = "Pearson"))
-          cor_j[[2]] <- c(cor_j[[2]], weightedCorr(x = chrmeans_j[, get(signals[1])],
-                                      y = chrmeans_j[, get(signals[2])],
-                                      weights = chrmeans_j$weight, method = "Spearman"))
+                                      weights = chrmeans_j$weight, method = "Pearson")
         }
       }
 
       # compute jacknife weighted estimate of the correlation
-      cor_tbl[level==j & method == 'pearson', cor_jack := g*cor_n - sum(((n-j_weights)*cor_j[[1]])/n)]
-      cor_tbl[level==j & method == 'spearman', cor_jack := g*cor_n - sum(((n-j_weights)*cor_j[[2]])/n)]
+      cor_tbl[level==j, cor_jack := g*cor_n - sum(((n-j_weights)*cor_j)/n)]
 
       # compute jacknife standard error (formula in link gives jacknife variance of the estimator, thus we just take square root for se)
       h_j <- n/j_weights
-      tau_j_prsn <- h_j*cor_tbl[level==j & method == 'pearson', cor_n] - (h_j-1)*cor_j[[1]]
-      tau_j_sprmn <- h_j*cor_tbl[level==j & method == 'spearman', cor_n] - (h_j-1)*cor_j[[2]]
+      tau_j <- h_j*cor_tbl[level==j, cor_n] - (h_j-1)*cor_j
 
-      cor_tbl[level==j & method == 'pearson', cor_jack_se := sqrt((1/g)*sum((tau_j_prsn - cor_j[[1]])^2/(h_j-1)))][]
-      cor_tbl[level==j & method == 'spearman', cor_jack_se := sqrt((1/g)*sum((tau_j_sprmn - cor_j[[2]])^2/(h_j-1)))][]
+      cor_tbl[level==j, cor_jack_se := sqrt((1/g)*sum((tau_j - cor_j)^2/(h_j-1)))][]
 
     }
   }
