@@ -4,16 +4,27 @@
 \alias{gnom_cor_decomp}
 \title{Correlation decomposition of two signals measured along multiple chromosomes}
 \usage{
-gnom_cor_decomp(data, chromosome, signals, rm.boundary = FALSE)
+gnom_cor_decomp(
+  data,
+  signals,
+  chromosome,
+  method = "pearson",
+  rm.boundary = FALSE
+)
 }
 \arguments{
 \item{data}{data.table containing columns for variables to be correlated and a column with chromosome id if applicable.
 data.table should be keyed by chromosome and then position. It is assumed that all positions in the data.table are equally spaced along the chromosome.
 If not, results will not be valid. To get measurements at equally-spaced locations along chromosomes, you can interpolate your signals using the R function \code{approx()}.}
 
+\item{signals}{character vector, names of columns to be correlated}
+
 \item{chromosome}{character string, name of column containing chromosome id. To calculate results per chromosome, use chromosome = NA, and run function separately per chromosome.}
 
-\item{signals}{character vector, names of columns to be correlated}
+\item{method}{one of 'pearson' or 'spearman', indicating the type of correlation to calculate from wavelet coefficients. Note 'pearson' wavelet correlations for detail coefficients
+do not strictly conform to the definition of the Pearson correlation as the product of means is not subtracted, but this gives an unbiased estimate of the wavelet correlation.
+For scaling coefficients, the usual Pearson formula is used. Note also that the exact decomposition of the total correlation as described in manuscript is only valid using the
+'pearson' wavelet and scaling correlations. \cr}
 
 \item{rm.boundary}{logical, whether to remove boundary coefficients in the calculations. Default is FALSE.}
 }
@@ -29,8 +40,6 @@ Chromosome-level correlations are weighted by chromosome length.\cr
 \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
 \tab \cr
 \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
-\tab \cr
-\code{method} \tab 'pearson' or 'spearman' correlations of wavelet or scaling coefficients. Note that the exact decomposition of the total correlation as described in manuscript is only valid using the 'pearson' wavelet and scaling correlations \cr
 }
 }
 \description{
