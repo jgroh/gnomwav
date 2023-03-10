@@ -277,7 +277,29 @@ wvBottleneck <- function(d, n.pop, epochs, unit.dist, alpha){
   return(a)
 }
 
-
+#' Calculate expected wavelet variance of ancestry state under neutral admixture pulse model with variable population size
+#'
+#' @param n.pop Numeric vector. Total number of chromosomes in the population. Ordered forward in time, should correspond to epochs (see below).
+#' E.g. a value of c(10,1000) would indicate that the population size is 10 in the first interval and 1000 in the next interval.
+#' @param epochs Numeric vector. Length of generations moving forward in time from the admixture event. For example a value of c(10, 990)
+#' would correspond to a constant population size (specified with n.pop) for 10 generations after mixture, followed by a different population size for
+#' the subsequent 990 generations.
+#' @param n.sample numeric. returns wavelet variance for mean ancestry in a sample of this size. \code{n.sample} of 1
+#' gives expectation for a single chromosome
+#' @param unit.dist Unit distance, i.e. spacing between adjacent hypothetical loci, in Morgans
+#' @param level Integer vector giving levels at which expectation will be returned.
+#' Level 1 would correspond to expected variance associated with changes occurring over the unit distance.
+#' @param gen Integer vector of generations for which expectation should be returned.
+#' Note that generations correspond to number of generations of recombination since the admixture pulse,
+#' i.e. number of meioses starting with meiosis in F1s.
+#' @param alpha numeric. the admixture proportion.
+#'
+#' @return a data.table with columns corresponding to the arguments given and column \code{variance}
+#' giving the expectations.
+#'
+#' @import data.table
+#' @import cubature
+#' @export
 wavelet_variance_general <- function(n.pop, epochs, n.sample, unit.dist, level, gen, alpha){
   variance <- NULL # due to NSE notes in R CMD check
 
