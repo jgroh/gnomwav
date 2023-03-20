@@ -341,9 +341,9 @@ modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
       g <- length(jchrs)
     }
 
-    if(g < 4){
+    if(g < 6){
       rsqrd[level == j, c("rsqrd_jack", "rsqrd_jack_se") := .(NA, NA)]
-    } else if (g >=4){
+    } else if (g >=6){
 
       # leave-1-out estimates will go in this vector
       rsqrd_j <- vector()
