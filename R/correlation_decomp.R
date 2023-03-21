@@ -261,8 +261,6 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 #'  on a scale of 2^X.  \cr
 #'  \tab \cr
 #'  \code{rsqrd_n} \tab R squared from a linear model using the specified formula.
-#'  For wavelet coefficients, the regression is forced through the origin.
-#'  For scaling coefficients and chromosome means, an intercept is fit.
 #'  For the chromosome level, the regression of means is weighted by chromosome length.
 #'  \cr
 #'  \tab \cr
@@ -297,8 +295,8 @@ modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
   # ===== lm of wavelet coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)
 
-  # formula for lm, intercept forced through zero
-  f_detail <- as.formula(paste(paste0('coefficient.',yvar), paste(c('0',paste0('coefficient.',xvars)), collapse=" + "), sep=" ~ "))
+  # formula for lm
+  f_detail <- as.formula(paste(paste0('coefficient.',yvar), paste(paste0('coefficient.',xvars), collapse=" + "), sep=" ~ "))
   f_smooth <- as.formula(paste(paste0('coefficient.',yvar), paste(paste0('coefficient.',xvars), collapse=" + "), sep=" ~ "))
   f_chr <- as.formula(paste(yvar, paste(xvars, collapse=" + "), sep =" ~ "))
 
