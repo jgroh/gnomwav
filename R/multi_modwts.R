@@ -11,7 +11,7 @@ wt_levels <- function(data, chromosome){
 
 
 # helper function, basically just a wrapper for waveslim::modwt
-multi_modwt_1var <- function(u, rm.boundary = FALSE){
+multi_modwt_1var <- function(u, rm.boundary = TRUE){
   a <- waveslim::modwt(x = u,wf = "haar",n.levels = floor(log2(length(u))))
 
   if(rm.boundary){
@@ -60,7 +60,7 @@ multi_modwt_1var <- function(u, rm.boundary = FALSE){
 #' @export
 #'
 #'
-multi_modwts <- function(data, chromosome, signals, rm.boundary=FALSE){
+multi_modwts <- function(data, chromosome, signals, rm.boundary=TRUE){
   position.id <- NULL
   setDT(data)
   d <- copy(data)

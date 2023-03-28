@@ -9,7 +9,7 @@ gnom_cor_decomp(
   signals,
   chromosome,
   method = "pearson",
-  rm.boundary = FALSE
+  rm.boundary = TRUE
 )
 }
 \arguments{

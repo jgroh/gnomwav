@@ -45,6 +45,7 @@ wav_var_exact <- function(x, expected.crossovers.per.unit.dist,
   )
 }
 
+# Expected wavelet variance: integrand for F2 case ------------------------------------------
 
 wav_var_F2 <- function(x, expected.crossovers.per.unit.dist,
                           n.pop, n.sample, alpha, t.gens) {
@@ -126,8 +127,25 @@ wavelet_variance_equilibrium <- function(n.pop, n.sample, unit.dist, level, gen,
   return(data.table(do.call(rbind.data.frame, genlist)))
 }
 
-
-wavelet_variance_F2 <- function(n.pop, n.sample, unit.dist, level, gen, alpha){
+#' Calculate expected wavelet variance of ancestry state for F2 generation
+#'
+#' @param n.pop Numeric vector. Total number of chromosomes in the population. e.g. should be 2N for a diploid population
+#' @param n.sample numeric. returns wavelet variance for mean ancestry in a sample of this size. \code{n.sample} of 1
+#' gives expectation for a single chromosome
+#' @param unit.dist Unit distance, i.e. spacing between adjacent hypothetical loci, in Morgans
+#' @param level Integer vector giving levels at which expectation will be returned.
+#' Level 1 would correspond to expected variance associated with changes occurring over the unit distance.
+#' @param alpha numeric. the admixture proportion.
+#'
+#' @return a data.table with columns corresponding to the arguments given and column \code{variance}
+#' giving the expectations.
+#'
+#' @import data.table
+#' @import cubature
+#' @export
+#'
+wavelet_variance_F2 <- function(n.pop, n.sample, unit.dist, level, alpha){
+  gen <- 1
   genlist <- list()
 
   # loop over generations

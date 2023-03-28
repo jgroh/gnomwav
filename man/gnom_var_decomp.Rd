@@ -8,7 +8,7 @@ gnom_var_decomp(
   data,
   chromosome,
   signals,
-  rm.boundary = FALSE,
+  rm.boundary = TRUE,
   avg.over.chroms = TRUE
 )
 }

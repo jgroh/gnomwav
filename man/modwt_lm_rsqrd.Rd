@@ -4,7 +4,7 @@
 \alias{modwt_lm_rsqrd}
 \title{R squared from linear model of wavelet coefficients}
 \usage{
-modwt_lm_rsqrd(data, yvar, xvars, chromosome, rm.boundary = FALSE)
+modwt_lm_rsqrd(data, yvar, xvars, chromosome, rm.boundary = TRUE)
 }
 \arguments{
 \item{data}{data.frame containing columns for chromosome id and signal measurements.
@@ -17,7 +17,7 @@ If not, you will need to interpolate your signal to a grid of evenly spaced poin
 
 \item{chromosome}{character string, the name of the column containing chromosome id}
 
-\item{rm.boundary}{logical, whether to remove boundary coefficients (default FALSE)}
+\item{rm.boundary}{logical, whether to remove boundary coefficients (default TRUE)}
 }
 \value{
 if avg.over.chroms = TRUE, returns a data.table containing:\tabular{ll}{
@@ -28,8 +28,6 @@ scaling coefficients, and corresponding variances are associated with localized 
 on a scale of 2^X.  \cr
 \tab \cr
 \code{rsqrd_n} \tab R squared from a linear model using the specified formula.
-For wavelet coefficients, the regression is forced through the origin.
-For scaling coefficients and chromosome means, an intercept is fit.
 For the chromosome level, the regression of means is weighted by chromosome length.
 \cr
 \tab \cr

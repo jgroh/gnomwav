@@ -5,7 +5,7 @@
 \title{Maximal Overlap Discrete Wavelet Transform of signals measured along
 a set of disjoint sequences.}
 \usage{
-multi_modwts(data, chromosome, signals, rm.boundary = FALSE)
+multi_modwts(data, chromosome, signals, rm.boundary = TRUE)
 }
 \arguments{
 \item{data}{a data.frame or data.table containing a column for chromosome ID and column(s) with signal values.}

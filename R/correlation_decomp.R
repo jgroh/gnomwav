@@ -5,7 +5,7 @@
 
 #' @importFrom stats cov.wt
 #'
-cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
+cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
   level <- cov <- weight <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
@@ -87,7 +87,7 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = FALSE){
 #' gnom_cor_decomp(data, signals=signals, chromosome = chromosome)
 #'
 
-gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.boundary = FALSE){
+gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.boundary = TRUE){
   level <- weight <- N <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
@@ -251,7 +251,7 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 #' @param yvar character string, the response variable in the linear model
 #' @param xvars character vector, the predictor variables in the linear model. Assumed no interaction
 #' @param chromosome character string, the name of the column containing chromosome id
-#' @param rm.boundary logical, whether to remove boundary coefficients (default FALSE)
+#' @param rm.boundary logical, whether to remove boundary coefficients (default TRUE)
 #'
 #' @return if avg.over.chroms = TRUE, returns a data.table containing:\tabular{ll}{
 #' \code{level} \tab The level of the wavelet decomposition. Values "dX"
@@ -290,7 +290,7 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 #'
 #' modwt_lm_rsqrd(data=data, yvar = "z", xvars = c("x", "y"), chromosome = "chrom")
 #'
-modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = FALSE){
+modwt_lm_rsqrd <- function(data, yvar, xvars, chromosome, rm.boundary = TRUE){
   level <- N <- rsqrd_n <- rsqrd_jack <- rsqrd_jack_se <- NULL # due to NSE notes in R CMD check
   # ===== lm of wavelet coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(xvars,yvar), rm.boundary = rm.boundary)

@@ -64,12 +64,12 @@
 # data[, y := x + rnorm(4000, mean=0, sd=2)]
 # signals <- c('x', 'y'); chromosome <- 'group'; avg.over.chroms=T; rm.boundary <- F
 
-gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=FALSE, avg.over.chroms = TRUE){
+gnom_var_decomp <- function(data, chromosome, signals, rm.boundary=TRUE, avg.over.chroms = TRUE){
   nlevs <- level <- weight <- n.wavelets <- N <- NULL # due to NSE notes in R CMD check
 
-  if(rm.boundary){
-    warning("The scaling variance may be badly biased if boundary coefficients are removed. Consider comparing results to rm.boundary=F")
-  }
+  #if(rm.boundary){
+  #  warning("The scaling variance may be badly biased if boundary coefficients are removed. Consider comparing results to rm.boundary=F")
+  #}
   m <- multi_modwts(data = data, chromosome = chromosome, signals = signals, rm.boundary = rm.boundary)
 
 
