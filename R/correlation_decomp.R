@@ -270,10 +270,6 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 #' z <- "z"
 #' gnom_partial_cor_decomp(data, signals=signals, z = z, chromosome = chromosome)
 #'
-
-
-
-
 gnom_partial_cor_decomp <- function(data, signals, z, chromosome, method = 'pearson', rm.boundary = TRUE){
   level <- weight <- N <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
   # get modwt coefficients
