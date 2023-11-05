@@ -83,7 +83,9 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 #' library(data.table)
 #' data <- data.table(group = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000))
 #' data[, y := x + rnorm(4000, mean=0, sd=2)]
+#' data[, z := y + rnorm(4000, mean=0, sd=2)]
 #' signals <- c("x", "y"); chromosome <- "group"
+#' z <- "z"
 #' gnom_cor_decomp(data, signals=signals, chromosome = chromosome)
 #'
 
@@ -222,6 +224,155 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 
   return(cor_tbl)
 }
+
+
+
+gnom_partial_cor_decomp <- function(data, signals, z, chromosome, method = 'pearson', rm.boundary = TRUE){
+  level <- weight <- N <- cor_jack <- cor_n <- cor_jack_se <- NULL # due to NSE notes in R CMD check
+  # get modwt coefficients
+  w <- multi_modwts(data = data, chromosome = chromosome, signals = c(signals, z), rm.boundary = rm.boundary)
+
+  w[, residuals.x := residuals(lm(coefficient.x ~ coefficient.z)), by = level]
+  w[, residuals.y := residuals(lm(coefficient.y ~ coefficient.z)), by = level]
+
+  cols <- paste0("residuals.", signals)
+
+  if (method == 'pearson') {
+    # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
+
+    cor_tbl_detail_prs <- w[grepl("d", level, fixed=T),
+                            .(cor_n = mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))), by = level]
+
+    # scaling coefficient correlations do subtract off the product of means
+    cor_tbl_smooth_prs <- w[grepl("s", level, fixed=T),
+                            .(cor_n = cor(get(cols[1]), get(cols[2]))), by = level]
+    cor_tbl <- rbind(cor_tbl_detail_prs, cor_tbl_smooth_prs)
+
+  } else if(method == 'spearman'){
+    cor_tbl <- w[, .(cor_n = cor(get(cols[1]), get(cols[2]))), by = level]
+  }
+
+
+  if(is.na(chromosome)){
+    return(cor_tbl)
+  }
+
+  # chromosome-scale correlation:
+  totalmeans <- data[, lapply(.SD, mean), .SDcols = signals]
+  setnames(totalmeans, signals, paste0("totalmean.", signals))
+  chrmeans <- data[, lapply(.SD, mean), by = chromosome, .SDcols = c(signals,z)]
+
+  # chromosome lengths as weights
+  chrlen <- data[, .(weight = .N), by = chromosome]
+  chrlen[, weight := weight/sum(weight)]
+  chrmeans <- merge(chrmeans,chrlen)
+
+  chrmeans[, residuals.x := residuals(lm(x~z, weights = weight))]
+  chrmeans[, residuals.y := residuals(lm(y~z, weights = weight))]
+
+  # 4. weighted chromosome-scale correlation
+
+  if(method == 'pearson'){
+    # since residuals already weighted, just compute regular correlation
+    chrmeans[, .(cor_n = cor(residuals.x, residuals.y), level = chromosome)]
+
+  } else if (method == 'spearman'){
+    chrmeans[, .(cor_n = cor(residuals.x, residuals.y, method = 'spearman'), level = chromosome)]
+
+  }
+
+  cor_tbl <- rbind(cor_tbl, chrcor)
+
+  # ===== weighted jacknife =====
+  # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf
+
+  # compute separately for each level, as each level has potentially different number of chromosomes available
+  for(j in unique(cor_tbl$level)){
+
+    if(j != chromosome){
+      # which chromosomes have coefficients at this level
+      w_sub <- w[level == j]
+      n <- nrow(w_sub)
+      jchrs <- w_sub[, unique(get(chromosome))]
+
+      # number of observations for each chromosome where this level is present
+      j_weights <- w_sub[, .N, by = chromosome][, N]
+
+      # subset data to only these chromosomes
+      d_sub <- data[get(chromosome) %in% jchrs]
+
+      # how many chromosomes in our sample for this level?
+      g <- length(jchrs)
+
+    } else if (j == chromosome){
+      n <- nrow(data)
+      jchrs <- data[, unique(get(chromosome))]
+      j_weights <- data[, .N, by = chromosome][, N]
+      g <- length(jchrs)
+    }
+
+    # don't perform jacknife if sample size is at less than 6
+    if(g < 6){
+      cor_tbl[level == j, c("cor_jack", "cor_jack_se") := .(NA, NA)]
+
+    } else if (g >= 6){
+      # leave-1-out estimates will go in this list, first element pearson cors
+      # 2nd element spearman cors
+      cor_j <- c()
+
+      # loop over chroms and calculate estimate leaving each out in turn
+      for(i in 1:length(jchrs)){
+
+        # if detail coefficient
+        if(grepl('d', j, fixed=T)){
+
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], mean(get(cols[1])*get(cols[2]))/ (sqrt(mean(get(cols[1])^2)*mean(get(cols[2])^2)))]
+          # smooth coefficient
+        } else if(grepl('s', j, fixed=T)){
+
+          cor_j[i] <- w_sub[get(chromosome) != jchrs[i], cor(get(cols[1]), get(cols[2]))]
+
+        } else if(j == chromosome){
+
+          # chromosome-scale correlation:
+          totalmeans_j <- data[get(chromosome) != jchrs[i], lapply(.SD, mean), .SDcols = signals]
+          setnames(totalmeans_j, signals, paste0("totalmean.", signals))
+          chrmeans_j <- data[get(chromosome) != jchrs[i], lapply(.SD, mean), by = chromosome, .SDcols = c(signals, z)]
+
+          # chromosome lengths as weights
+          chrlen_j <- data[get(chromosome) != jchrs[i], .(weight = .N), by = chromosome]
+          chrlen_j[, weight := weight/sum(weight)]
+          chrmeans_j <- merge(chrmeans_j, chrlen_j)
+
+          #  weighted chromosome-scale correlation
+          chrmeans_j[, residuals.x := residuals(lm(x~z, weights = weight))]
+          chrmeans_j[, residuals.y := residuals(lm(y~z, weights = weight))]
+
+          cor_j[i] <- chrmeans[, cor(residuals.x, residuals.y)]
+
+        }
+      }
+
+      # compute jacknife weighted estimate of the correlation
+      cor_tbl[level==j, cor_jack := g*cor_n - sum(((n-j_weights)*cor_j)/n)]
+
+      # compute jacknife standard error (formula in link gives jacknife variance of the estimator, thus we just take square root for se)
+      h_j <- n/j_weights
+      tau_j <- h_j*cor_tbl[level==j, cor_n] - (h_j-1)*cor_j
+
+      cor_tbl[level==j, cor_jack_se := sqrt((1/g)*sum((tau_j - cor_j)^2/(h_j-1)))][]
+
+    }
+  }
+
+  return(cor_tbl)
+}
+
+
+
+
+
+
 
 
 # make sample data set with 20 chroms, where z is correlated with both x and y separately
