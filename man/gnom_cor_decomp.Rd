@@ -39,7 +39,7 @@ Chromosome-level correlations are weighted by chromosome length.\cr
 \tab \cr
 \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
 \tab \cr
-\code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
+\code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. Currently only implemented for pearson correlations. \cr
 }
 }
 \description{

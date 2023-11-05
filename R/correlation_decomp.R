@@ -68,7 +68,7 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 #'  \tab \cr
 #'  \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
 #'  \tab \cr
-#'  \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
+#'  \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. Currently only implemented for pearson correlations. \cr
 #' }
 #'
 #' @export
@@ -83,9 +83,7 @@ cov_tbl <- function(data, chromosome, signals, rm.boundary = TRUE){
 #' library(data.table)
 #' data <- data.table(group = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000))
 #' data[, y := x + rnorm(4000, mean=0, sd=2)]
-#' data[, z := y + rnorm(4000, mean=0, sd=2)]
 #' signals <- c("x", "y"); chromosome <- "group"
-#' z <- "z"
 #' gnom_cor_decomp(data, signals=signals, chromosome = chromosome)
 #'
 
@@ -224,6 +222,55 @@ gnom_cor_decomp <- function(data, signals, chromosome, method = 'pearson', rm.bo
 
   return(cor_tbl)
 }
+
+
+
+
+#' Wavelet partial correlations of two signals measured along multiple chromosomes
+#'
+#' @param data data.table containing columns for variables to be correlated and a column with chromosome id if applicable.
+#' data.table should be keyed by chromosome and then position. It is assumed that all positions in the data.table are equally spaced along the chromosome.
+#' If not, results will not be valid. To get measurements at equally-spaced locations along chromosomes, you can interpolate your signals using the R function \code{approx()}.
+#' @param signals character vector, names of columns to be correlated. Wavelet coefficients of these variables will be regressed against those of 'z', and then correlations taken.
+#' @param z character, name of column containing confounding variable
+#' @param chromosome character string, name of column containing chromosome id. To calculate results per chromosome, use chromosome = NA, and run function separately per chromosome.
+#' @param method one of 'pearson' or 'spearman', indicating the type of correlation to calculate from wavelet coefficients. Note 'pearson' wavelet correlations for detail coefficients
+#' do not strictly conform to the definition of the Pearson correlation as the product of means is not subtracted, but this gives an unbiased estimate of the wavelet correlation.
+#' For scaling coefficients, the usual Pearson formula is used. Note also that the exact decomposition of the total correlation as described in manuscript is only valid using the
+#'  'pearson' wavelet and scaling correlations. \cr
+#' @param rm.boundary logical, whether to remove boundary coefficients in the calculations. Default is FALSE.
+#'
+#' @return data.table containing:\tabular{ll}{
+#' \code{level} \tab The level of the wavelet decomposition. Levels "d?" correspond to wavelet coefficients.
+#'  Levels "s?" correspond to scaling coefficients. Note 'pearson' correlations for wavelet coefficients don't subtract off the product of means.
+#'  Otherwise 'pearson' correlations for scaling coefficients or at the chromosome-level, and all 'spearman' correlations are calculated in the usual way.
+#'  Chromosome-level correlations are weighted by chromosome length.\cr
+#'  \tab \cr
+#'  \code{cor_n} \tab Correlation computed at the given level \cr
+#'  \tab \cr
+#'  \code{cor_jack} \tab Bias-corrected correlation from weighted block jackknife procedure. Details of procedure found at # https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/wjack.pdf \cr
+#'  \tab \cr
+#'  \code{cor_jack_se} \tab Standard error of correlation computed from a weighted block jackknife across chromosomes. Only returned if number of chromosomes containing the given level is at least 6, otherwise returns NA. \cr
+#' }
+#'
+#' @export
+#' @import wCorr
+#' @import data.table
+#' @importFrom stats cor
+#'
+#' @examples
+#' # Toy example - two white-noise signals "x" and "y" measured
+#' # along six 'chromosomes'.
+#'
+#' library(data.table)
+#' data <- data.table(group = c(rep(1,1000), rep(2,1000), rep(3,750), rep(4,500), rep(5,500), rep(6,250)), x = rnorm(4000))
+#' data[, y := x + rnorm(4000, mean=0, sd=2)]
+#' data[, z := y + rnorm(4000, mean=0, sd=2)]
+#' signals <- c("x", "y"); chromosome <- "group"
+#' z <- "z"
+#' gnom_partial_cor_decomp(data, signals=signals, z = z, chromosome = chromosome)
+#'
+
 
 
 
