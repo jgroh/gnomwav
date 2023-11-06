@@ -275,10 +275,12 @@ gnom_partial_cor_decomp <- function(data, signals, z, chromosome, method = 'pear
   # get modwt coefficients
   w <- multi_modwts(data = data, chromosome = chromosome, signals = c(signals, z), rm.boundary = rm.boundary)
 
-  w[, residuals.x := residuals(lm(coefficient.x ~ coefficient.z)), by = level]
-  w[, residuals.y := residuals(lm(coefficient.y ~ coefficient.z)), by = level]
+  cols1 <- paste0("coefficient.", c(signals, z))
 
-  cols <- paste0("residuals.", signals)
+  w[, residuals.x := residuals(lm(get(cols1[1]) ~ get(cols1[3]))), by = level]
+  w[, residuals.y := residuals(lm(get(cols1[2]) ~ get(cols1[3]))), by = level]
+
+  cols <- paste0("residuals.", c("x", "y", "z"))
 
   if (method == 'pearson') {
     # wavelet 'correlations' these are not quite correlations bc we don't subtract off the product of the means
@@ -310,17 +312,17 @@ gnom_partial_cor_decomp <- function(data, signals, z, chromosome, method = 'pear
   chrlen[, weight := weight/sum(weight)]
   chrmeans <- merge(chrmeans,chrlen)
 
-  chrmeans[, residuals.x := residuals(lm(x~z, weights = weight))]
-  chrmeans[, residuals.y := residuals(lm(y~z, weights = weight))]
+  chrmeans[, residuals.x := residuals(lm(get(signals[1])~get(z), weights = weight))]
+  chrmeans[, residuals.y := residuals(lm(get(signals[2])~get(z), weights = weight))]
 
   # 4. weighted chromosome-scale correlation
 
   if(method == 'pearson'){
     # since residuals already weighted, just compute regular correlation
-    chrmeans[, .(cor_n = cor(residuals.x, residuals.y), level = chromosome)]
+    chrcor <- chrmeans[, .(cor_n = cor(residuals.x, residuals.y), level = chromosome)]
 
   } else if (method == 'spearman'){
-    chrmeans[, .(cor_n = cor(residuals.x, residuals.y, method = 'spearman'), level = chromosome)]
+    chrcor <- chrmeans[, .(cor_n = cor(residuals.x, residuals.y, method = 'spearman'), level = chromosome)]
 
   }
 
@@ -388,8 +390,8 @@ gnom_partial_cor_decomp <- function(data, signals, z, chromosome, method = 'pear
           chrmeans_j <- merge(chrmeans_j, chrlen_j)
 
           #  weighted chromosome-scale correlation
-          chrmeans_j[, residuals.x := residuals(lm(x~z, weights = weight))]
-          chrmeans_j[, residuals.y := residuals(lm(y~z, weights = weight))]
+          chrmeans_j[, residuals.x := residuals(lm(get(signals[1])~get(z), weights = weight))]
+          chrmeans_j[, residuals.y := residuals(lm(get(signals[2])~get(z), weights = weight))]
 
           cor_j[i] <- chrmeans[, cor(residuals.x, residuals.y)]
 
