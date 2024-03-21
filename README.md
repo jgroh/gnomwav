@@ -8,3 +8,5 @@ This directory contains the R package *gnomwav*. The package provides functions 
 library(devtools)
 devtools::install_github("jgroh/gnomwav")
 ```
+
+Function documentation can be found in the usual way within R, e.g. `?gnom_var_decomp`. I'm working on expanding this page to be more useful, questions/suggestions are welcome. jgroh at ucdavis dot edu
